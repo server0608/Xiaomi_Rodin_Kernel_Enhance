@@ -34,6 +34,8 @@ An enhanced Android kernel for Xiaomi **rodin** devices, built on top of Xiaomi'
 - **RCU Lazy Power Savings Enabled by Default**: batch and delay non-urgent RCU callbacks to reduce spurious CPU wakeups from low-power idle states, boosting screen-off standby battery life
 - **EROFS High-Priority Multithreaded Decompression**: per-CPU high-priority decompression workers enabled with LZMA/DEFLATE support for faster app cold-starts
 - **Stripped Redundant Kernel Debug Overhead**: disabled heavy page-owner tracking to reduce memory allocation stalls and standby power draw
+- **300Hz Kernel Timer Aligned with High-Refresh Displays**: tick rate divides evenly into 60/120Hz vsync periods, noticeably reducing UI micro-jank on high-refresh scrolling
+- **Free Page Reporting**: the memory subsystem proactively marks cold pages during idle periods, complementing MGLRU and ZRAM for long-running stability
 
 ### Stability & Fixes
 - Fixed probabilistic boot hang and restored vendor module compatibility
