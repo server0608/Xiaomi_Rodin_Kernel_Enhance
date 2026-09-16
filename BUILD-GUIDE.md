@@ -50,14 +50,14 @@ make ARCH=arm64 LLVM=1 -j8 Image Image.lz4
 
 | 含义 | 路径 |
 |------|------|
-| 源仓库（ReSukiSU-susfs） | `/home/qwe12/rodin-build/resukisu-susfs` |
-| 内核树（目标落地位置） | `/home/qwe12/rodin-build/kernel-rodin-merge` |
+| 源仓库（ReSukiSU） | `~/rodin-build/resukisu-susfs` |
+| 内核树（目标落地位置） | `~/rodin-build/kernel-rodin-merge` |
 | 源模块源码目录 | `<源根>/kernel` |
 | 落地目标目录 | `<内核根>/drivers/kernelsu` |
 | 版本修正脚本（Windows 侧） | `fix_kbuild.py` |
 
-> Windows 与 WSL 路径映射：`\\wsl.localhost\Ubuntu-24.04` 对应 `/`，例如
-> `\\wsl.localhost\Ubuntu-24.04\home\qwe12\rodin-build\...` == `/home/qwe12/rodin-build/...`。
+> Windows 与 WSL 路径映射：`\\wsl.localhost\<发行版>` 对应 `/`，例如
+> `\\wsl.localhost\Ubuntu\home\<用户名>\rodin-build\...` == `/home/<用户名>/rodin-build/...`。
 
 ---
 
@@ -186,7 +186,7 @@ KSU_VERSION = 30000 + KSU_LOCAL_VERSION + 700
 需要 4 个字段，全部来自**源仓库**（非内核树）：
 
 ```bash
-cd <源根>   # 例如 /home/qwe12/rodin-build/resukisu-susfs
+cd <源根>   # 例如 ~/rodin-build/resukisu-susfs
 
 KSU_LOCAL_VERSION=$(git rev-list --count HEAD)                        # 例 4427
 KSU_TAG_NAME=$(git describe --abbrev=0 --tags 2>/dev/null || echo v4.1.0)  # 例 v4.2.0-rc1
@@ -290,11 +290,30 @@ grep -n 'KSU_VERSION\|KSU_LOCAL_VERSION\|KSU_TAG_NAME\|KSU_COMMIT_SHA\|KSU_BRANC
 
 ## 触发方式
 
-- 网页：仓库 **Actions** → 左侧选 **build-kernel** → **Run workflow** → 分支保持
-  `bsp-rodin-v-oss-bp` → 点击运行；
-- 命令行：`gh workflow run build-kernel.yml -R omajili-manbu/Xiaomi_Rodin_Kernel_Enhance --ref bsp-rodin-v-oss-bp`
+- 手动：仓库 **Actions** → 左侧选 **build-kernel** → **Run workflow** → 分支保持
+  `bsp-rodin-v-oss-bp` → 点击运行（需要重建已发布过的版本时勾选 `force`）；
+- 命令行：`gh workflow run build-kernel.yml -R <owner>/Xiaomi_Rodin_Kernel_Enhance --ref bsp-rodin-v-oss-bp`；
+- 自动（每日）：`sync-android15-6.6-lts`（18:30 UTC）与 `sync-resukisu`（18:50 UTC）
+  成功后经 `workflow_run` 链式触发；另有 19:15 UTC（次日 03:15 UTC+8）的 `schedule`
+  兜底一次，防止两个同步工作流失败时当天没有构建。
 
-该工作流为 `workflow_dispatch` 手动触发，不会因 push 或 schedule 自动运行。
+三者都会先跑一个轻量 `gate`（约 1 分钟）：读取**最新 Release 正文里的
+`rodin-build-sha` 标记**，若分支 tip 已经构建并发布过就跳过编译，因此不会因为
+多次触发而在同一天重复出包。
+
+## 自动化闭环（每日同步 → 构建 → 发布）
+
+```text
+18:30 UTC  sync-android15-6.6-lts  ──┐
+18:50 UTC  sync-resukisu           ──┤ 成功后 workflow_run 链式触发
+                                   └──────────────┐
+                                                   ▼
+                                          build-kernel (gate → build)
+                                                   ▼
+                                    GitHub Release v<内核版本>-<UTC时间戳>
+```
+
+Release 资产：`Rodin-<版本>-AnyKernel3.zip`（可刷包）+ 两个 arm64-v8a 管理器 APK。
 
 ## 它在云端做什么
 
@@ -309,20 +328,22 @@ grep -n 'KSU_VERSION\|KSU_LOCAL_VERSION\|KSU_TAG_NAME\|KSU_COMMIT_SHA\|KSU_BRANC
    固定的 `KSU_COMMIT_SHA` **相同 commit** 的构建产物（管理器与内核模块版本严格一致），
    过滤后只保留 arm64-v8a 的 release 与 spoofed 两个 APK。
 
-## 产物（run 页底部 3 个 artifact）
+## 产物（Run 页 artifact + 自动发布的 Release）
 
-| Artifact | 内容与用法 |
+| 产物 | 内容与用法 |
 |---|---|
-| `Rodin-<版本>-AnyKernel3` | 可刷包本体。下载得到的 zip 就是 AK3 包（根目录 `anykernel.sh` / `Image` / `META-INF/`），TWRP/KernelSU 直接选中刷入，**无需先解包** |
-| `rodin-<版本>-manager` | ReSukiSU 管理器 release 变体（arm64-v8a 单 APK） |
-| `rodin-<版本>-manager-spoofed` | ReSukiSU 管理器 spoofed 变体（arm64-v8a 单 APK） |
+| `Rodin-<版本>-AnyKernel3`（artifact） | 可刷包本体。下载得到的 zip 就是 AK3 包（根目录 `anykernel.sh` / `Image` / `META-INF/`），TWRP/KernelSU 直接选中刷入，**无需先解包** |
+| `rodin-<版本>-manager`（artifact） | ReSukiSU 管理器 release 变体（arm64-v8a 单 APK） |
+| `rodin-<版本>-manager-spoofed`（artifact） | ReSukiSU 管理器 spoofed 变体（arm64-v8a 单 APK） |
+| `Rodin-<版本>-AnyKernel3.zip` + 两个 APK（Release） | 同一个构建的正式发布：tag 形如 `v6.6.30-…-20260913-1915`，tag 指向被编译的那个 commit |
 
 ## 注意
 
 - 全量 ThinLTO 编译约 35–45 分钟（4 核 runner），任一步失败即中止，日志可直接定位到具体步骤；
+- 去重：`gate` 通过 Release 正文的 `rodin-build-sha` 标记识别「这个 commit 已经出过包」，
+  同一天多次触发只会产生一个 Release；需要重刷时手动触发并勾选 `force`；
 - 管理器版本一致性：按 `KSU_COMMIT_SHA` 精确匹配上游 CI run；若对应产物已过期（GitHub
   默认保留 90 天），自动回退到上游最新成功构建并在日志中 `::warning` 提示；
-- 与每日 `sync-resukisu` 互补：sync 落地新 ReSukiSU 后，手动触发一次构建即可得到
-  新版本内核 + 配套管理器。
+- 权限：本工作流需要 `contents: write` 才能创建 tag 与 Release（已写在 workflow 里）。
 
-> 最后更新：2026-09-13
+> 最后更新：2026-09-13（新增：每日同步 → 自动构建 → 发布 Release 的链式闭环）

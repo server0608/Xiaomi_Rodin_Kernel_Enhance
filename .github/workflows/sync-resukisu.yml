@@ -1,12 +1,12 @@
 name: sync-resukisu
 
-# Sync omajili-manbu/ReSukiSU (fork) with ReSukiSU/ReSukiSU (upstream), then
-# re-land the kernel module into drivers/kernelsu and refresh the SUSFS files.
-# Rules (per owner):
+# Land ReSukiSU/ReSukiSU (upstream, read-only clone) into the kernel tree as
+# drivers/kernelsu, keeping the kernel-side SUSFS files in sync.
+# Rules:
 #   - any conflict or structural surprise -> abort, push nothing, open/update an issue
 #   - version pinning per BUILD-GUIDE.md: KSU_VERSION = 30000 + rev-list-count + 700
-# NOTE: this workflow does NOT build-test the landed tree; build locally before
-# shipping a boot image.
+# NOTE: this workflow does NOT build-test the landed tree; the build-kernel
+# workflow (chained via workflow_run) does the real compile.
 
 on:
   schedule:
@@ -24,9 +24,13 @@ concurrency:
 
 env:
   KERNEL_BRANCH: bsp-rodin-v-oss-bp
-  RSU_FORK_URL: https://github.com/omajili-manbu/ReSukiSU.git
+  # ReSukiSU is cloned read-only from upstream: no fork mirror and therefore no
+  # GH_PAT is needed. The landed commit sha/count come straight from upstream, so
+  # the manager APKs fetched by build-kernel (same sha) always match.
   RSU_UPSTREAM_URL: https://github.com/ReSukiSU/ReSukiSU.git
   RSU_BRANCH: main
+  # SUSFS-side patches/bootstrap only (read-only). Override these two vars if you
+  # prefer another fork/branch.
   SUSFS_REPO_URL: https://github.com/omajili-manbu/susfs4ksu.git
   SUSFS_BRANCH: gki-android15-6.6-mod
   ISSUE_TITLE: "[auto-sync] ReSukiSU sync failed - manual attention needed"
@@ -43,48 +47,30 @@ jobs:
 
       - name: Git identity
         run: |
-          git config user.name  "omajili-manbu"
-          git config user.email "qwer12777332899@gmail.com"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Check GH_PAT secret
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-        run: |
-          if [ -z "$GH_PAT" ]; then
-            echo "::error::repository secret GH_PAT is not set - cannot sync the ReSukiSU fork"
-            exit 1
-          fi
-
-      - name: Sync ReSukiSU fork with upstream
+      - name: Clone ReSukiSU upstream
         id: rsu_sync
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
         run: |
           set -euo pipefail
-          git clone -b "$RSU_BRANCH" "$RSU_FORK_URL" "$RUNNER_TEMP/rsu"
+          git clone --branch "$RSU_BRANCH" "$RSU_UPSTREAM_URL" "$RUNNER_TEMP/rsu"
           cd "$RUNNER_TEMP/rsu"
-          git remote add upstream "$RSU_UPSTREAM_URL"
-          git fetch upstream "$RSU_BRANCH" --tags
-          UP=$(git rev-parse FETCH_HEAD)
-          if ! git merge --ff-only "$UP" >/tmp/rsu-merge.log 2>&1; then
-            echo "fork $RSU_BRANCH is not a fast-forward of upstream - trying a real merge"
-            if ! git merge --no-edit "$UP" >>/tmp/rsu-merge.log 2>&1; then
-              git merge --abort || true
-              cp /tmp/rsu-merge.log "$RUNNER_TEMP/rsu-conflict.log" || true
-              echo "has_conflict=true" >> "$GITHUB_OUTPUT"
-              echo "::error::ReSukiSU fork sync merge conflict - aborted, nothing pushed"
-              exit 1
-            fi
-          fi
-          git push "https://x-access-token:${GH_PAT}@github.com/omajili-manbu/ReSukiSU.git" "$RSU_BRANCH"
-          echo "rsu_sha=$(git rev-parse --short=8 HEAD)" >> "$GITHUB_OUTPUT"
-          echo "rsu_count=$(git rev-list --count HEAD)" >> "$GITHUB_OUTPUT"
-          echo "rsu_tag=$(git describe --abbrev=0 --tags 2>/dev/null || echo v4.1.0)" >> "$GITHUB_OUTPUT"
-          echo "rsu_branch=$(git branch --show-current)" >> "$GITHUB_OUTPUT"
+          RSU_SHA=$(git rev-parse --short=8 HEAD)
+          # Version pinning per BUILD-GUIDE.md: KSU_VERSION = 30000 + rev-list-count + 700,
+          # so the count must come from the same history the module is landed from.
+          RSU_COUNT=$(git rev-list --count HEAD)
+          RSU_TAG=$(git describe --abbrev=0 --tags 2>/dev/null || echo v4.1.0)
           {
-            echo "### ReSukiSU fork sync"
-            echo "- fork $RSU_BRANCH now at: \`$(git rev-parse HEAD)\`"
-            echo "- version inputs: count $(git rev-list --count HEAD), tag $(git describe --abbrev=0 --tags 2>/dev/null || echo v4.1.0)"
+            echo "rsu_sha=$RSU_SHA"
+            echo "rsu_count=$RSU_COUNT"
+            echo "rsu_tag=$RSU_TAG"
+            echo "rsu_branch=$RSU_BRANCH"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### ReSukiSU upstream"
+            echo "- commit: \`$RSU_SHA\` ($RSU_BRANCH, tag $RSU_TAG)"
+            echo "- version inputs: rev-list count $RSU_COUNT"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Land ReSukiSU module + refresh SUSFS files
@@ -238,7 +224,7 @@ jobs:
             echo "- ReSukiSU landed: \`${{ steps.rsu_sync.outputs.rsu_sha }}\` (version ${{ steps.rsu_sync.outputs.rsu_count }}, tag ${{ steps.rsu_sync.outputs.rsu_tag }})"
             echo "- SUSFS files from susfs4ksu@$SUSFS_BRANCH: \`${{ steps.landing.outputs.susfs_sha }}\`"
             echo "- pushed to \`$KERNEL_BRANCH\`"
-            echo "- build verification was NOT run - build locally before shipping"
+            echo "- build-kernel.yml picks this up automatically (workflow_run) and publishes the Release"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: File tracking issue on failure
@@ -246,20 +232,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          EXTRA=""
-          if [ -f "$RUNNER_TEMP/rsu-conflict.log" ]; then
-            EXTRA=$'### ReSukiSU fork sync merge log\n```\n'
-            EXTRA+="$(head -100 "$RUNNER_TEMP/rsu-conflict.log")"
-            EXTRA+=$'\n```\n'
-          fi
           {
             echo "The [sync-resukisu run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) failed."
             echo "**Nothing was pushed.** Common causes:"
-            echo "- merge conflict while syncing the ReSukiSU fork with upstream (see log below)"
             echo "- upstream ReSukiSU Kbuild structure changed (ksu_pin_version.py aborts by design)"
-            echo "- \`GH_PAT\` secret missing or expired"
+            echo "- upstream ReSukiSU is unreachable, or the module no longer rsyncs cleanly into drivers/kernelsu"
+            echo "- a SUSFS kernel-side file/version mismatch (the consistency gate aborts by design)"
             echo ""
-            echo "$EXTRA"
           } > /tmp/issue-body.md
           EXISTING=$(gh issue list --state open --search "auto-sync ReSukiSU failed in:title" --json number --jq '.[0].number' || true)
           if [ -n "$EXISTING" ]; then

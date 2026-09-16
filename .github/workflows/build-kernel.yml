@@ -1,18 +1,42 @@
 name: build-kernel
 
-# 手动触发的 rodin 内核构建（参考 ABK build.yml 的核心编译流程裁剪）：
+# rodin 内核构建 + 自动发布 Release（参考 ABK build.yml 的核心编译流程裁剪）：
 #   clang-r596125 -> gki_defconfig -> Image + Image.lz4 (LZ4 legacy)
 #   -> AnyKernel3 可刷包（内核 blob 命名为 Image，内容为 lz4 legacy 格式，
 #      设备启动时只认名为 Image 的 blob）
 #   + 与内核树 drivers/kernelsu 落地版本一致的 ReSukiSU 管理器
 #     （取 ReSukiSU/ReSukiSU main 分支 Build Manager CI 产物：release + spoofed）
+#
+# 触发方式（三选一，均会走一遍 gate 去重）：
+#   - workflow_dispatch：手动触发（可勾选 force 强制重建）
+#   - workflow_run：sync-android15-6.6-lts / sync-resukisu 成功后的链式触发
+#   - schedule：每日 03:15 UTC+8 兜底（同步工作流未触发构建时补一次）
+# gate 会读取最新 Release body 中的 `rodin-build-sha` 标记：若分支 tip 已经
+# 构建并发布过，则跳过本次编译（全量 ThinLTO 约 35-45 分钟，避免重复出包）。
 
 on:
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Force a build even if this branch tip was already built and released"
+        type: boolean
+        default: false
+  schedule:
+    - cron: '15 19 * * *'   # daily 03:15 UTC+8, runs after sync workflows
+  workflow_run:
+    workflows: ["sync-android15-6.6-lts", "sync-resukisu"]
+    types:
+      - completed
 
 permissions:
-  contents: read
+  contents: write
   actions: read
+
+# Never let two builds race for the same branch; a queued run re-checks the gate
+# and usually skips immediately.
+concurrency:
+  group: build-kernel-${{ github.event.repository.default_branch }}
+  cancel-in-progress: false
 
 env:
   KERNEL_BRANCH: bsp-rodin-v-oss-bp
@@ -23,7 +47,66 @@ env:
   RSU_REPO: ReSukiSU/ReSukiSU
 
 jobs:
+  # Cheap pre-flight: the build below takes ~45 min on a 4-core runner, and the
+  # three triggers (2x sync chaining + nightly schedule) can all fire for the same
+  # commit. Skip the build when the branch tip is already built and released.
+  gate:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    outputs:
+      should_build: ${{ steps.decide.outputs.should_build }}
+      tip_sha: ${{ steps.decide.outputs.tip_sha }}
+    steps:
+      - name: Checkout kernel branch tip
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.KERNEL_BRANCH }}
+          fetch-depth: 1
+
+      - name: Decide whether a build is needed
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE: ${{ github.event.inputs.force }}
+        run: |
+          set -euo pipefail
+          TIP_SHA=$(git rev-parse HEAD)
+          echo "tip_sha=$TIP_SHA" >> "$GITHUB_OUTPUT"
+          echo "trigger: ${{ github.event_name }}, branch tip: $TIP_SHA"
+
+          if [ "${FORCE:-}" = "true" ]; then
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::force=true - building regardless of previous releases"
+            exit 0
+          fi
+
+          LAST_TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 \
+                       --json tagName --jq '.[0].tagName // empty' || true)
+          LAST_SHA=""
+          if [ -n "$LAST_TAG" ]; then
+            # The release body carries a machine-readable marker of the built commit.
+            BODY=$(gh release view "$LAST_TAG" --repo "$GITHUB_REPOSITORY" \
+                     --json body --jq '.body // ""' || true)
+            LAST_SHA=$(printf '%s\n' "$BODY" \
+                       | grep -o 'rodin-build-sha: [0-9a-f]\{7,40\}' \
+                       | head -n1 | awk '{print $2}' || true)
+          fi
+          echo "latest release: ${LAST_TAG:-<none>} (built commit: ${LAST_SHA:-<unknown>})"
+
+          if [ -n "$LAST_SHA" ] && [ "$LAST_SHA" = "$TIP_SHA" ]; then
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+            echo "tip $TIP_SHA is already released as $LAST_TAG - no build needed"
+          else
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            echo "tip $TIP_SHA differs from last released commit ${LAST_SHA:-<none>} - building"
+          fi
+
   build:
+    needs: gate
+    if: needs.gate.outputs.should_build == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 240
     steps:
@@ -32,6 +115,10 @@ jobs:
         with:
           ref: ${{ env.KERNEL_BRANCH }}
           fetch-depth: 1
+
+      - name: Record built commit
+        id: built
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Free disk space
         run: |
@@ -193,3 +280,55 @@ jobs:
             echo "- AK3 flashable zip: artifact \`Rodin-${KERNEL_RELEASE}-AnyKernel3\` (downloaded zip is directly flashable, kernel blob Image = lz4 legacy)"
             echo "- ReSukiSU manager (arm64-v8a only): artifacts \`rodin-${KERNEL_RELEASE}-manager\` / \`rodin-${KERNEL_RELEASE}-manager-spoofed\` from [CI run]($RSU_RUN_URL)"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Package artifacts for Release
+        id: release_prep
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          # AnyKernel3 -> a single flashable zip (entries stored without a leading ./)
+          AK3_ZIP="Rodin-${KERNEL_RELEASE}-AnyKernel3.zip"
+          (cd AnyKernel3 && find . -mindepth 1 -maxdepth 1 -printf '%P\0' \
+             | xargs -0 zip -r9 "../release-assets/${AK3_ZIP}")
+          # Matching ReSukiSU manager APKs (standard + spoofed, arm64-v8a)
+          cp -f manager/*.apk release-assets/
+          cp -f manager-spoofed/*.apk release-assets/
+          ls -la release-assets/
+          # kernel.release can carry characters that are invalid in a git tag
+          SAFE_RELEASE=$(printf '%s' "$KERNEL_RELEASE" | tr -c 'A-Za-z0-9._-' '-')
+          {
+            echo "RELEASE_TAG=v${SAFE_RELEASE}-$(date -u +'%Y%m%d-%H%M')"
+            echo "AK3_ZIP=${AK3_ZIP}"
+          } >> "$GITHUB_ENV"
+
+      - name: Create GitHub Release (tagged with timestamp)
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          # tag the exact commit that was compiled
+          target_commitish: ${{ steps.built.outputs.sha }}
+          name: "Rodin kernel ${{ env.KERNEL_RELEASE }} (ReSukiSU)"
+          draft: false
+          prerelease: false
+          make_latest: true
+          files: release-assets/*
+          body: |
+            ## Xiaomi Rodin Kernel Enhance (ReSukiSU + SUSFS)
+
+            <!-- rodin-build-sha: ${{ steps.built.outputs.sha }} -->
+
+            - **Kernel release:** `${{ env.KERNEL_RELEASE }}`
+            - **Built commit:** `${{ steps.built.outputs.sha }}` (branch `${{ env.KERNEL_BRANCH }}`)
+            - **Trigger:** `${{ github.event_name }}`
+            - **ReSukiSU manager source:** [upstream Build Manager CI run](${{ env.RSU_RUN_URL }})
+
+            ### Assets
+            | Asset | Purpose |
+            |---|---|
+            | `${{ env.AK3_ZIP }}` | AnyKernel3 flashable zip. The kernel blob is named `Image` and holds the **lz4 legacy** (magic `02214c18` verified) kernel - flash it directly from TWRP / KernelSU, no unpacking needed |
+            | `*manager*arm64-v8a*release.apk` | ReSukiSU manager matching this kernel's landed module: standard + spoofed variant |
+
+            > The manager APKs are pulled from upstream ReSukiSU CI at the exact commit pinned in
+            > `drivers/kernelsu/Kbuild`, so kernel module and manager versions always match.

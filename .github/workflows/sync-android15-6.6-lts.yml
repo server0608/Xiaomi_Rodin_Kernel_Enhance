@@ -1,11 +1,11 @@
 name: sync-android15-6.6-lts
 
 # Merge AOSP android15-6.6-lts into bsp-rodin-v-oss-bp.
-# Rules (per owner):
+# Rules:
 #   - clean merge   -> push the merge commit directly to the branch
 #   - any conflict  -> abort the merge, push nothing, open/update a tracking issue
-# NOTE: this workflow does NOT build-test the merged tree; verify a build
-# locally before shipping a boot image.
+# NOTE: this workflow does not compile anything. On success build-kernel.yml is
+# triggered via workflow_run, compiles the merged tree and publishes a Release.
 
 on:
   schedule:
@@ -39,8 +39,8 @@ jobs:
 
       - name: Git identity
         run: |
-          git config user.name  "omajili-manbu"
-          git config user.email "qwer12777332899@gmail.com"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Fetch LTS branch from AOSP
         run: |
@@ -95,7 +95,7 @@ jobs:
           {
             echo "### Result"
             echo "- merged $LTS_BRANCH @ \`$UP_SHA\` and pushed to \`$KERNEL_BRANCH\`"
-            echo "- build verification was NOT run - build locally before shipping"
+            echo "- build-kernel.yml picks this up automatically (workflow_run) and publishes the Release"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: File tracking issue on conflict

@@ -13,7 +13,7 @@ An enhanced Android kernel for Xiaomi **rodin** devices, built on top of Xiaomi'
 ## Highlights
 
 ### Root & Hiding
-- **ReSukiSU** built-in, integrated from [`omajili-manbu/ReSukiSU` (`main`)](https://github.com/omajili-manbu/ReSukiSU/tree/main)
+- **ReSukiSU** built-in, integrated from [`ReSukiSU/ReSukiSU` (`main`)](https://github.com/ReSukiSU/ReSukiSU/tree/main)
 - **SuSFS** built-in, integrated from [`omajili-manbu/susfs4ksu` (`gki-android15-6.6-mod`)](https://github.com/omajili-manbu/susfs4ksu/tree/gki-android15-6.6-mod)
 - Able to hide suspicious SELinux contexts/rules from apps, tied to the SuSFS AVC log spoofing switch
 
@@ -45,7 +45,7 @@ The tuning philosophy is **balancing performance and battery life** — all gain
 
 ## Branches
 
-- [`bsp-rodin-v-oss-bp`](https://github.com/omajili-manbu/Xiaomi_Rodin_Kernel_Enhance/tree/bsp-rodin-v-oss-bp) — main build branch, based on Xiaomi's official rodin source with additional backports and enhancements
+- [`bsp-rodin-v-oss-bp`](https://github.com/server0608/Xiaomi_Rodin_Kernel_Enhance/tree/bsp-rodin-v-oss-bp) — main build branch, based on Xiaomi's official rodin source with additional backports and enhancements
 
 ## Roadmap
 
@@ -54,8 +54,8 @@ The tuning philosophy is **balancing performance and battery life** — all gain
 ## Downloads & Support
 
 - [Some build guides](BUILD-GUIDE.md)
-- Prebuilt images: [Releases](https://github.com/omajili-manbu/Xiaomi_Rodin_Kernel_Enhance/releases)
-- Bug reports: open an [issue](https://github.com/omajili-manbu/Xiaomi_Rodin_Kernel_Enhance/issues) with kernel logs attached
+- Prebuilt images: [Releases](https://github.com/server0608/Xiaomi_Rodin_Kernel_Enhance/releases)
+- Bug reports: open an [issue](https://github.com/server0608/Xiaomi_Rodin_Kernel_Enhance/issues) with kernel logs attached
 - If you like this project, please consider giving it a Star to support me!
 
 ## Acknowledgements

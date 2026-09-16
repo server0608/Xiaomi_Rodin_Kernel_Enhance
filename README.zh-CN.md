@@ -13,7 +13,7 @@
 ## 特性
 
 ### Root 与隐藏
-- 内置 **ReSukiSU**，集成自 [`omajili-manbu/ReSukiSU`（`main`）](https://github.com/omajili-manbu/ReSukiSU/tree/main)
+- 内置 **ReSukiSU**，集成自 [`ReSukiSU/ReSukiSU`（`main`）](https://github.com/ReSukiSU/ReSukiSU/tree/main)
 - 内置 **SuSFS**，集成自 [`omajili-manbu/susfs4ksu`（`gki-android15-6.6-mod`）](https://github.com/omajili-manbu/susfs4ksu/tree/gki-android15-6.6-mod)
 - 具备对应用隐藏可疑 SELinux 上下文/规则的能力，绑定在 SuSFS AVC 日志欺骗开关
 
@@ -45,7 +45,7 @@
 
 ## 分支
 
-- [`bsp-rodin-v-oss-bp`](https://github.com/omajili-manbu/Xiaomi_Rodin_Kernel_Enhance/tree/bsp-rodin-v-oss-bp) — 主构建分支，在小米官方 rodin 源码基础上叠加反向移植与增强
+- [`bsp-rodin-v-oss-bp`](https://github.com/server0608/Xiaomi_Rodin_Kernel_Enhance/tree/bsp-rodin-v-oss-bp) — 主构建分支，在小米官方 rodin 源码基础上叠加反向移植与增强
 
 ## 计划
 
@@ -54,8 +54,8 @@
 ## 下载与支持
 
 - [一些构建经验](BUILD-GUIDE.md)
-- 预编译镜像：[Releases](https://github.com/omajili-manbu/Xiaomi_Rodin_Kernel_Enhance/releases)
-- 问题反馈：请携带内核日志开 [issue](https://github.com/omajili-manbu/Xiaomi_Rodin_Kernel_Enhance/issues)
+- 预编译镜像：[Releases](https://github.com/server0608/Xiaomi_Rodin_Kernel_Enhance/releases)
+- 问题反馈：请携带内核日志开 [issue](https://github.com/server0608/Xiaomi_Rodin_Kernel_Enhance/issues)
 - 如果你觉得这个项目不错，欢迎点个 Star 支持我！
 
 ## 致谢
