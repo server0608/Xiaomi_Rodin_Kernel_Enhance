@@ -171,6 +171,9 @@ jobs:
           "$CLANG_DIR/bin/clang" --version
 
       - name: Build kernel (gki_defconfig -> Image + Image.lz4)
+        env:
+          KBUILD_BUILD_USER: "403"
+          KBUILD_BUILD_HOST: "github"
         run: |
           set -euo pipefail
           # BUILD-GUIDE.md：只能用 gki_defconfig 生成用于编译的 .config
