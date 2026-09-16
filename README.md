@@ -32,6 +32,8 @@ An enhanced Android kernel for Xiaomi **rodin** devices, built on top of Xiaomi'
 - **Enhanced I/O Schedulers**: built-in **Kyber** (low-latency queue depth auto-tuning for fast UFS storage) and **BFQ** (hierarchical cgroup scheduling) to eliminate UI stuttering during heavy background I/O
 - **Socket & Network Diagnostics**: complete in-kernel TCP/UDP/RAW socket diagnostics for smoother loopback and local proxy traffic
 - **RCU Lazy Power Savings Enabled by Default**: batch and delay non-urgent RCU callbacks to reduce spurious CPU wakeups from low-power idle states, boosting screen-off standby battery life
+- **EROFS High-Priority Multithreaded Decompression**: per-CPU high-priority decompression workers enabled with LZMA/DEFLATE support for faster app cold-starts
+- **Stripped Redundant Kernel Debug Overhead**: disabled heavy page-owner tracking to reduce memory allocation stalls and standby power draw
 
 ### Stability & Fixes
 - Fixed probabilistic boot hang and restored vendor module compatibility
