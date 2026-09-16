@@ -172,7 +172,7 @@ jobs:
 
       - name: Build kernel (gki_defconfig -> Image + Image.lz4)
         env:
-          KBUILD_BUILD_USER: "403"
+          KBUILD_BUILD_USER: "403Forbidden"
           KBUILD_BUILD_HOST: "github"
         run: |
           set -euo pipefail
