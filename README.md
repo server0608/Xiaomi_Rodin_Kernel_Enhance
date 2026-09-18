@@ -34,6 +34,9 @@ An enhanced Android kernel for Xiaomi **rodin** devices, built on top of Xiaomi'
 - **RCU Lazy Power Savings Enabled by Default**: batch and delay non-urgent RCU callbacks to reduce spurious CPU wakeups from low-power idle states, boosting screen-off standby battery life
 - **EROFS High-Priority Multithreaded Decompression**: per-CPU high-priority decompression workers enabled with LZMA/DEFLATE support for faster app cold-starts
 - **Stripped Redundant Kernel Debug Overhead**: disabled heavy page-owner tracking to reduce memory allocation stalls and standby power draw
+- **CAKE Smart Queue Management**: built-in Common Applications Kept Enhanced (CAKE) qdisc for best-in-class bufferbloat mitigation, flow isolation, and minimal gaming latency
+- **Foreground I/O Latency Protection & WBT**: enabled `BLK_CGROUP_IOLATENCY` and `BLK_WBT_MQ` to prioritize foreground interactive/gaming I/O and prevent writeback storms from starving read requests
+- **DAMON Physical Memory Monitoring & LRU Sorting**: enabled `DAMON_PADDR`, `DAMON_RECLAIM`, and `DAMON_LRU_SORT` to proactively protect active working sets and reclaim cold pages, boosting multitasking retention
 
 ### Stability & Fixes
 - Fixed probabilistic boot hang and restored vendor module compatibility
