@@ -172,3 +172,4 @@ sphinx_*/
 
 # Local build helper (keep local only)
 /gen-rodin-config.sh
+out/
