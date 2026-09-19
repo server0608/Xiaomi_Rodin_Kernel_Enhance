@@ -44,6 +44,23 @@ An enhanced Android kernel for Xiaomi **rodin** devices, built on top of Xiaomi'
 
 The tuning philosophy is **balancing performance and battery life** — all gains come from compile-time optimizations, an up-to-date kernel, updated algorithms, and bug fixes on top of Xiaomi's official kernel, with no aggressive tweaks biased toward either side.
 
+## Current Status & Recent Updates
+
+- **Kernel Version**: Linux 6.6.143 (Android 15 GKI)
+- **Target Platform**: Xiaomi Rodin / MT6897 (Dimensity 8400 Ultra)
+- **Stable Baseline**: `34849521a42a`
+
+### Verified Scheduler Backports
+The following 6 scheduler backports have been audited, applied, compiled, and individually verified via hardware flashing tests on physical Rodin devices:
+- `sched/fair: Fix cpu_util runnable_avg arithmetic`
+- `sched/fair: Allow decaying util_est when util_avg > CPU capa`
+- `sched/fair: Fix overflow in update_tg_cfs_runnable()`
+- `sched/fair: Fix initial util_avg calculation`
+- `sched/fair: Don't trigger active lb if src_rq->curr is not on_rq`
+- `sched/fair: Check CPU capacity before comparing group types during load balance`
+
+Subsequent scheduler backports will continue to be audited, built, and hardware-verified step by step.
+
 ## Supported Devices
 
 | Device | Codename | OS |
