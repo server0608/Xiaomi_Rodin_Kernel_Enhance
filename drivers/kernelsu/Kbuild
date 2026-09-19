@@ -79,14 +79,14 @@ KSU_COMMIT_SHA  := $(KSU_COMMIT_SHA)-dirty
 endif
 KSU_BRANCH_NAME := $(shell cd $(KSU_SRC); $(GIT_BIN) branch --show-current 2>/dev/null || echo "unknown")
 else
-# Vendored as an in-tree copy of ReSukiSU main @ 487b32da (tag v4.2.0-rc2). Do NOT
+# Vendored as an in-tree copy of ReSukiSU main @ 6d18926a (tag v4.2.0-rc2). Do NOT
 # query git here: this directory lives inside the kernel git repository, so
 # rev-list, rev-parse and diff-index would silently report the kernel tree
 # history and leak its commit count, sha and dirty state into the ReSukiSU
 # version info.
-KSU_LOCAL_VERSION := 4456
+KSU_LOCAL_VERSION := 4458
 KSU_TAG_NAME    := v4.2.0-rc2
-KSU_COMMIT_SHA  := 487b32da
+KSU_COMMIT_SHA  := 6d18926a
 KSU_BRANCH_NAME := main
 endif
 KSU_VERSION := $(shell expr 30000 + $(KSU_LOCAL_VERSION) + 700)
