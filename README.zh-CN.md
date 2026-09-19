@@ -6,7 +6,7 @@
 [![SuSFS](https://img.shields.io/badge/Hiding-SuSFS-green)](https://gitlab.com/simonpunk/susfs4ksu)
 [![License](https://img.shields.io/badge/license-GPL--2.0-lightgrey)](LICENSES)
 
-[English](README.md) | 简体中文
+简体中文 | [English](README.en.md)
 
 基于小米已开源的 [`bsp-rodin-v-oss`](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bsp-rodin-v-oss) 内核源码（AOSP `android15-6.6` GKI / 联发科）构建的 rodin 设备增强内核，并持续跟进最新 **6.6 LTS**。
 
@@ -43,6 +43,23 @@
 - 在小米官方内核基础上反向移植上游修复
 
 调优理念是**性能与续航兼顾**——所有提升均来自编译时优化、更新的内核、更新的算法，以及对小米官方内核的 bug 修复，没有偏向任何一方的激进调整。
+
+## 当前稳定状态与最近更新
+
+- **内核版本**：Linux 6.6.143 (Android 15 GKI)
+- **目标平台**：Xiaomi Rodin / MT6897 (Dimensity 8400 Ultra)
+- **稳定基线**：`34849521a42a`
+
+### 已实机验证的调度器 Backport
+以下 6 个 CFS 调度器补丁均已完成严格审计、源码移植、本地编译以及 Rodin 实机刷入测试：
+- `sched/fair: Fix cpu_util runnable_avg arithmetic`
+- `sched/fair: Allow decaying util_est when util_avg > CPU capa`
+- `sched/fair: Fix overflow in update_tg_cfs_runnable()`
+- `sched/fair: Fix initial util_avg calculation`
+- `sched/fair: Don't trigger active lb if src_rq->curr is not on_rq`
+- `sched/fair: Check CPU capacity before comparing group types during load balance`
+
+后续调度器补丁将继续严格遵循“单 patch 审计 → 最小修改 → 本地构建 → 实机测试”流程逐个推进。
 
 ## 支持设备
 
