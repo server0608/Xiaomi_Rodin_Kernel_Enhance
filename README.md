@@ -49,6 +49,7 @@
 - **内核版本**：Linux 6.6.143 (Android 15 GKI)
 - **目标平台**：Xiaomi Rodin / MT6897 (Dimensity 8400 Ultra)
 - **稳定基线**：`34849521a42a`
+- **网络栈优化**：内核层硬锁定 **BBRv3** 拥塞控制与 **FQ** 队列调度，拦截 Android userspace 脚本覆写，全系统开机自启生效
 
 ### 已实机验证的调度器 Backport
 以下 6 个 CFS 调度器补丁均已完成严格审计、源码移植、本地编译以及 Rodin 实机刷入测试：

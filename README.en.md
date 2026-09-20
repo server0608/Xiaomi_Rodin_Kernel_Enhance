@@ -49,6 +49,7 @@ The tuning philosophy is **balancing performance and battery life** — all gain
 - **Kernel Version**: Linux 6.6.143 (Android 15 GKI)
 - **Target Platform**: Xiaomi Rodin / MT6897 (Dimensity 8400 Ultra)
 - **Stable Baseline**: `34849521a42a`
+- **Network Stack Optimization**: Kernel-level hard-lock for **BBRv3** TCP congestion control and **FQ** packet scheduler, preventing Android userspace overrides and ensuring system-wide activation
 
 ### Verified Scheduler Backports
 The following 6 scheduler backports have been audited, applied, compiled, and individually verified via hardware flashing tests on physical Rodin devices:
