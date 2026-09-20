@@ -839,5 +839,6 @@ CONFIG_LTO_CLANG_THIN=y
 CONFIG_ZRAM_DEF_COMP_LZ4=y
 # Perf: default qdisc -> fq (pairs with BBR)
 CONFIG_DEFAULT_FQ=y
+CONFIG_DEFAULT_NET_SCH="fq"
 # Perf: allow default qdisc selection
 CONFIG_NET_SCH_DEFAULT=y

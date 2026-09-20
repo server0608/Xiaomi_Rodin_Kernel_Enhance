@@ -227,8 +227,19 @@ static int proc_tcp_congestion_control(struct ctl_table *ctl, int write,
 	tcp_get_default_congestion_control(net, val);
 
 	ret = proc_dostring(&tbl, write, buffer, lenp, ppos);
-	if (write && ret == 0)
+	if (write && ret == 0) {
+#if IS_ENABLED(CONFIG_DEFAULT_BBR3) || IS_ENABLED(CONFIG_DEFAULT_BIC)
+		/*
+		 * Hard-lock the default congestion control to the value chosen
+		 * at build time (CONFIG_DEFAULT_TCP_CONG). Silently ignore any
+		 * Android userspace (init.rc) attempt to switch it to cubic/reno/
+		 * bic/... so bbr3 stays active system-wide.
+		 */
+		if (strcmp(val, CONFIG_DEFAULT_TCP_CONG))
+			return 0;
+#endif
 		ret = tcp_set_default_congestion_control(net, val);
+	}
 	return ret;
 }
 

@@ -285,8 +285,19 @@ static int set_default_qdisc(struct ctl_table *table, int write,
 	qdisc_get_default(id, IFNAMSIZ);
 
 	ret = proc_dostring(&tbl, write, buffer, lenp, ppos);
-	if (write && ret == 0)
+	if (write && ret == 0) {
+#if IS_ENABLED(CONFIG_DEFAULT_FQ)
+		/*
+		 * Hard-lock the default qdisc to the value chosen at build time
+		 * (CONFIG_DEFAULT_NET_SCH == "fq"). Silently ignore any Android
+		 * userspace (init.rc) attempt to switch it to fq_codel/pfifo_fast/
+		 * ... so fq stays attached to every new interface.
+		 */
+		if (strcmp(id, CONFIG_DEFAULT_NET_SCH))
+			return 0;
+#endif
 		ret = qdisc_set_default(id);
+	}
 	return ret;
 }
 #endif
