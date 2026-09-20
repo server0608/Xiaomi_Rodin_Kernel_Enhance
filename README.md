@@ -1,6 +1,6 @@
 # Xiaomi Rodin Kernel Enhance
 
-[![Kernel](https://img.shields.io/badge/kernel-6.6.142_LTS-blue)](https://kernel.org)
+[![Kernel](https://img.shields.io/badge/kernel-6.6.143_LTS-blue)](https://kernel.org)
 [![Base](https://img.shields.io/badge/base-MiCode%20bsp--rodin--v--oss-orange)](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bsp-rodin-v-oss)
 [![Root](https://img.shields.io/badge/Root-ReSukiSU-green)](https://github.com/ReSukiSU/ReSukiSU)
 [![SuSFS](https://img.shields.io/badge/Hiding-SuSFS-green)](https://gitlab.com/simonpunk/susfs4ksu)
@@ -48,7 +48,7 @@
 
 - **内核版本**：Linux 6.6.143 (Android 15 GKI)
 - **目标平台**：Xiaomi Rodin / MT6897 (Dimensity 8400 Ultra)
-- **稳定基线**：`34849521a42a`
+- **稳定基线**：`5029f1d845df`
 - **网络栈优化**：内核层硬锁定 **BBRv3** 拥塞控制与 **FQ** 队列调度，拦截 Android userspace 脚本覆写，全系统开机自启生效
 
 ### 已实机验证的调度器 Backport
