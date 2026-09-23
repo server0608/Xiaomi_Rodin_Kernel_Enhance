@@ -328,26 +328,33 @@ jobs:
           tag_name: ${{ env.RELEASE_TAG }}
           # tag the exact commit that was compiled
           target_commitish: ${{ steps.built.outputs.sha }}
-          name: "Rodin kernel ${{ env.KERNEL_RELEASE }} (ReSukiSU)"
+          name: "小米 Rodin 增强内核 | Kernel Enhance ${{ env.KERNEL_RELEASE }}"
           draft: false
           prerelease: false
           make_latest: true
           files: release-assets/*
           body: |
-            ## Xiaomi Rodin Kernel Enhance (ReSukiSU + SUSFS)
+            ## 📱 小米 / 红米 Rodin 增强内核 (Xiaomi Rodin Kernel Enhance)
+            > **特性集成 / Features**: ReSukiSU Root + SuSFS 深度隐藏 + BBG 防格机 + 调度器性能调优 + BBRv3 & FQ
 
             <!-- rodin-build-sha: ${{ steps.built.outputs.sha }} -->
 
-            - **Kernel release:** `${{ env.KERNEL_RELEASE }}`
-            - **Built commit:** `${{ steps.built.outputs.sha }}` (branch `${{ env.KERNEL_BRANCH }}`)
-            - **Trigger:** `${{ github.event_name }}`
-            - **ReSukiSU manager source:** [upstream Build Manager CI run](${{ env.RSU_RUN_URL }})
+            ### 📦 文件下载与使用说明 (Download & Usage)
 
-            ### Assets
-            | Asset | Purpose |
+            | 文件名 (File) | 说明与刷入方式 (Description & Instructions) |
             |---|---|
-            | `${{ env.AK3_ZIP }}` | AnyKernel3 flashable zip. The kernel blob is named `Image` and holds the **lz4 legacy** (magic `02214c18` verified) kernel - flash it directly from TWRP / KernelSU, no unpacking needed |
-            | `*manager*arm64-v8a*release.apk` | ReSukiSU manager matching this kernel's landed module: standard + spoofed variant |
+            | **`${{ env.AK3_ZIP }}`** | **【内核刷机包】AnyKernel3 Flashable Zip**<br>• **中文**：直接在 KernelSU / APatch / TWRP 中刷入，**无需解压**！内核已内置 LZ4 Legacy（魔数 `02214c18`）压缩验证，刷完直接重启设备即可生效。<br>• **English**: Flash directly via KernelSU / APatch / TWRP **without unpacking**. Pre-built with verified LZ4 Legacy compression. Reboot after flashing. |
+            | **`*release.apk` (不带 spoofed)** | **【官方管理器·标准版】ReSukiSU Manager (Standard)**<br>• **中文**：标准版 Root 管理器 APP，适合日常使用。<br>• **English**: Official standard Root manager application. |
+            | **`*spoofed-release.apk`** | **【官方管理器·伪装版】ReSukiSU Manager (Spoofed)**<br>• **中文**：具备包名伪装特性的管理器，更适合防银行、政企、游戏等 APP 的 Root 深度检测。<br>• **English**: Package-name spoofed manager for enhanced root hiding against detection. |
 
-            > The manager APKs are pulled from upstream ReSukiSU CI at the exact commit pinned in
-            > `drivers/kernelsu/Kbuild`, so kernel module and manager versions always match.
+            > 💡 **安装提示 (Note)**：管理器与内核内置驱动版本严格对应。标准版与伪装版**二选一安装即可**，请勿同时安装两个管理器。<br>
+            > *Install EITHER the standard OR the spoofed manager APK (do not install both).*
+
+            ---
+
+            ### 📋 构建详细信息 (Build Details)
+
+            - **内核版本 (Kernel Release)**: `${{ env.KERNEL_RELEASE }}`
+            - **编译基线提交 (Commit)**: `${{ steps.built.outputs.sha }}` (分支 `${{ env.KERNEL_BRANCH }}`)
+            - **触发来源 (Trigger)**: `${{ github.event_name }}`
+            - **管理器来源 (Manager Source)**: [上游 ReSukiSU 官方构建任务 (Upstream CI Run)](${{ env.RSU_RUN_URL }})
