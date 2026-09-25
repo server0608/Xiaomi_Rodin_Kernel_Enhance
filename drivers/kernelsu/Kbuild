@@ -79,14 +79,14 @@ KSU_COMMIT_SHA  := $(KSU_COMMIT_SHA)-dirty
 endif
 KSU_BRANCH_NAME := $(shell cd $(KSU_SRC); $(GIT_BIN) branch --show-current 2>/dev/null || echo "unknown")
 else
-# Vendored as an in-tree copy of ReSukiSU main @ 6803643e (tag v4.2.0-rc3). Do NOT
+# Vendored as an in-tree copy of ReSukiSU main @ 0e469895 (tag v4.2.0-rc3). Do NOT
 # query git here: this directory lives inside the kernel git repository, so
 # rev-list, rev-parse and diff-index would silently report the kernel tree
 # history and leak its commit count, sha and dirty state into the ReSukiSU
 # version info.
-KSU_LOCAL_VERSION := 4472
+KSU_LOCAL_VERSION := 4479
 KSU_TAG_NAME    := v4.2.0-rc3
-KSU_COMMIT_SHA  := 6803643e
+KSU_COMMIT_SHA  := 0e469895
 KSU_BRANCH_NAME := main
 endif
 KSU_VERSION := $(shell expr 30000 + $(KSU_LOCAL_VERSION) + 700)
@@ -140,6 +140,8 @@ else ifeq ($(CONFIG_X86_64),y)
   kernelsu-objs += hook/x86_64/patch_memory.o
 else ifeq ($(CONFIG_ARM),y)
   kernelsu-objs += hook/arm32/patch_memory.o
+else ifeq ($(CONFIG_RISCV),y)
+  kernelsu-objs += hook/riscv64/patch_memory.o
 else
   ifeq ($(CONFIG_KSU),y)
     $(info -- Unsupported arch)
@@ -173,6 +175,8 @@ ifdef CONFIG_KSU_TRACEPOINT_HOOK
     kernelsu-objs += hook/arm64/syscall_hook.o
   else ifeq ($(CONFIG_X86_64),y)
     kernelsu-objs += hook/x86_64/syscall_hook.o
+  else ifeq ($(CONFIG_RISCV),y
+    kernelsu-objs += hook/riscv64/syscall_hook.o
   else
     ifeq ($(CONFIG_KSU), y)
       $(info -- Unsupported arch)
