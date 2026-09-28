@@ -47,11 +47,11 @@ The tuning philosophy is **balancing performance and battery life** — all gain
 
 - **Kernel Version**: Linux 6.6.143 (Android 15 GKI)
 - **Target Platform**: Xiaomi Rodin / MT6897 (Dimensity 8400 Ultra)
-- **Stable Baseline**: `3ae9af4f0507`
+- **Stable Baseline**: `f181620517e1`
 - **Network Stack Optimization**: Kernel-level hard-lock for **BBRv3** TCP congestion control and **FQ** packet scheduler, preventing Android userspace overrides and ensuring system-wide activation
 
 ### Verified Scheduler Backports
-The following 7 scheduler backports have been audited, applied, compiled, and individually verified via hardware flashing tests on physical Rodin devices:
+The following 8 scheduler backports have been audited, applied, compiled, and individually verified via hardware flashing tests on physical Rodin devices:
 - `sched/fair: Fix cpu_util runnable_avg arithmetic`
 - `sched/fair: Allow decaying util_est when util_avg > CPU capa`
 - `sched/fair: Fix overflow in update_tg_cfs_runnable()`
@@ -59,6 +59,7 @@ The following 7 scheduler backports have been audited, applied, compiled, and in
 - `sched/fair: Don't trigger active lb if src_rq->curr is not on_rq`
 - `sched/fair: Check CPU capacity before comparing group types during load balance`
 - `sched/fair: Don't double balance_interval for migrate_misfit`
+- `sched/fair: Filter false overloaded_group case for EAS`
 
 Subsequent scheduler backports will continue to be audited, built, and hardware-verified step by step.
 

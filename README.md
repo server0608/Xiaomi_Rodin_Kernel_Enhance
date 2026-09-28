@@ -47,11 +47,11 @@
 
 - **内核版本**：Linux 6.6.143 (Android 15 GKI)
 - **目标平台**：Xiaomi Rodin / MT6897 (Dimensity 8400 Ultra)
-- **稳定基线**：`3ae9af4f0507`
+- **稳定基线**：`f181620517e1`
 - **网络栈优化**：内核层硬锁定 **BBRv3** 拥塞控制与 **FQ** 队列调度，拦截 Android userspace 脚本覆写，全系统开机自启生效
 
 ### 已实机验证的调度器 Backport
-以下 7 个 CFS 调度器补丁均已完成严格审计、源码移植、本地编译以及 Rodin 实机刷入测试：
+以下 8 个 CFS 调度器补丁均已完成严格审计、源码移植、本地编译以及 Rodin 实机刷入测试：
 - `sched/fair: Fix cpu_util runnable_avg arithmetic`
 - `sched/fair: Allow decaying util_est when util_avg > CPU capa`
 - `sched/fair: Fix overflow in update_tg_cfs_runnable()`
@@ -59,6 +59,7 @@
 - `sched/fair: Don't trigger active lb if src_rq->curr is not on_rq`
 - `sched/fair: Check CPU capacity before comparing group types during load balance`
 - `sched/fair: Don't double balance_interval for migrate_misfit`
+- `sched/fair: Filter false overloaded_group case for EAS`
 
 后续调度器补丁将继续严格遵循“单 patch 审计 → 最小修改 → 本地构建 → 实机测试”流程逐个推进。
 
