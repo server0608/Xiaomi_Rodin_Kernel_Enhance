@@ -9593,6 +9593,7 @@ struct sg_lb_stats {
 	unsigned int group_asym_packing; /* Tasks should be moved to preferred CPU */
 	unsigned int group_smt_balance;  /* Task on busy SMT be moved */
 	unsigned long group_misfit_task_load; /* A CPU has a task too big for its capacity */
+	unsigned int group_overutilized; /* At least one CPU is overutilized in the group */
 	misfit_reason_t group_misfit_reason;
 #ifdef CONFIG_NUMA_BALANCING
 	unsigned int nr_numa_running;
@@ -9839,6 +9840,13 @@ group_has_capacity(unsigned int imbalance_pct, struct sg_lb_stats *sgs)
 static inline bool
 group_is_overloaded(unsigned int imbalance_pct, struct sg_lb_stats *sgs)
 {
+	/*
+	 * With EAS and uclamp, 1 CPU in the group must be overutilized to
+	 * consider the group overloaded.
+	 */
+	if (sched_energy_enabled() && !sgs->group_overutilized)
+		return false;
+
 	if (sgs->sum_nr_running <= sgs->group_weight)
 		return false;
 
@@ -10052,8 +10060,10 @@ static inline void update_sg_lb_stats(struct lb_env *env,
 		if (nr_running > 1)
 			*sg_status |= SG_OVERLOAD;
 
-		if (cpu_overutilized(i))
+		if (cpu_overutilized(i)) {
 			*sg_status |= SG_OVERUTILIZED;
+			sgs->group_overutilized = 1;
+		}
 
 #ifdef CONFIG_NUMA_BALANCING
 		sgs->nr_numa_running += rq->nr_numa_running;
