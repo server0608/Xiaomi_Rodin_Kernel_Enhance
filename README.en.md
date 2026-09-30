@@ -1,6 +1,6 @@
 # Xiaomi Rodin Kernel Enhance
 
-[![Kernel](https://img.shields.io/badge/kernel-6.6.143_LTS-blue)](https://kernel.org)
+[![Kernel](https://img.shields.io/badge/kernel-6.6.144_LTS-blue)](https://kernel.org)
 [![Base](https://img.shields.io/badge/base-MiCode%20bsp--rodin--v--oss-orange)](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bsp-rodin-v-oss)
 [![Root](https://img.shields.io/badge/Root-ReSukiSU-green)](https://github.com/ReSukiSU/ReSukiSU)
 [![SuSFS](https://img.shields.io/badge/Hiding-SuSFS-green)](https://gitlab.com/simonpunk/susfs4ksu)
@@ -45,9 +45,9 @@ The tuning philosophy is **balancing performance and battery life** — all gain
 
 ## Current Status & Recent Updates
 
-- **Kernel Version**: Linux 6.6.143 (Android 15 GKI)
+- **Kernel Version**: Linux 6.6.144 (Android 15 GKI)
 - **Target Platform**: Xiaomi Rodin / MT6897 (Dimensity 8400 Ultra)
-- **Stable Baseline**: `f181620517e1`
+- **Stable Baseline**: `5c980c08d0fc`
 - **Network Stack Optimization**: Kernel-level hard-lock for **BBRv3** TCP congestion control and **FQ** packet scheduler, preventing Android userspace overrides and ensuring system-wide activation
 
 ### Verified Scheduler Backports
