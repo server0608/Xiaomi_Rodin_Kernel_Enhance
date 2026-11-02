@@ -165,6 +165,12 @@ jobs:
           done
           echo "patch_applied=$APPLIED" >> "$GITHUB_OUTPUT"
 
+          # 5) Disable preinit runner to prevent PID 1 replacement bootloop/hang on HyperOS/Dimensity
+          if [ -f drivers/kernelsu/tools/code_generation/code_generation.mk ]; then
+            sed -i '/preinit_runner.mk/d' drivers/kernelsu/tools/code_generation/code_generation.mk
+            echo "ccflags-y += -DKSU_NO_PREINIT" >> drivers/kernelsu/tools/code_generation/code_generation.mk
+          fi
+
       - name: Pin ReSukiSU version in drivers/kernelsu/Kbuild
         run: |
           python3 .github/scripts/ksu_pin_version.py \
