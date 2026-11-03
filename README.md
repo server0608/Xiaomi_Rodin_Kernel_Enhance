@@ -2,7 +2,7 @@
 
 [![Kernel](https://img.shields.io/badge/kernel-6.6.144_LTS-blue)](https://kernel.org)
 [![Base](https://img.shields.io/badge/base-MiCode%20bsp--rodin--v--oss-orange)](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bsp-rodin-v-oss)
-[![Root](https://img.shields.io/badge/Root-ReSukiSU-green)](https://github.com/ReSukiSU/ReSukiSU)
+[![Root](https://img.shields.io/badge/Root-BakaSU-green)](https://github.com/Baka-SU/BakaSU)
 [![SuSFS](https://img.shields.io/badge/Hiding-SuSFS-green)](https://gitlab.com/simonpunk/susfs4ksu)
 [![License](https://img.shields.io/badge/license-GPL--2.0-lightgrey)](LICENSES)
 
@@ -15,7 +15,7 @@
 ## 特性
 
 ### Root 与隐藏
-- 内置 **ReSukiSU**，集成自 [`ReSukiSU/ReSukiSU`（`main`）](https://github.com/ReSukiSU/ReSukiSU/tree/main)
+- 内置 **BakaSU**（原 ReSukiSU），集成自 [`Baka-SU/BakaSU`（`main`）](https://github.com/Baka-SU/BakaSU/tree/main)
 - 内置 **SuSFS**，集成自 [`omajili-manbu/susfs4ksu`（`gki-android15-6.6-mod`）](https://github.com/omajili-manbu/susfs4ksu/tree/gki-android15-6.6-mod)
 - 具备对应用隐藏可疑 SELinux 上下文/规则的能力，绑定在 SuSFS AVC 日志欺骗开关
 
@@ -47,11 +47,13 @@
 
 - **内核版本**：Linux 6.6.144 (Android 15 GKI)
 - **目标平台**：Xiaomi Rodin / MT6897 (Dimensity 8400 Ultra)
-- **稳定基线**：`5c980c08d0fc`
+- **源码基线**：`7f52a0fce3a4`
+- **Root 组件**：BakaSU `516d3e87`，Version Code **35257**，UAPI **6**；请使用[同提交官方管理器](https://github.com/Baka-SU/BakaSU/actions/runs/41207077584)。
+- **兼容修复与验证**：统一 BakaSU/SuSFS 的 SELinux 辅助函数声明、可见性及 8 参数调用，修复最终链接错误；保持 preinit runner 禁用。本地完整构建通过，用户已确认 Rodin 正常开机、管理器识别和已安装模块运行正常；SuSFS 隐藏效果及长期稳定性尚未验证。
 - **网络栈优化**：内核层硬锁定 **BBRv3** 拥塞控制与 **FQ** 队列调度，拦截 Android userspace 脚本覆写，全系统开机自启生效
 
-### 已实机验证的调度器 Backport
-以下 8 个 CFS 调度器补丁均已完成严格审计、源码移植、本地编译以及 Rodin 实机刷入测试：
+### 已合入的调度器 Backport
+以下 9 个 scheduler backport 已合入；验证范围以各次构建与实机测试记录为准，不将编译通过等同于独立 A/B 验证。
 - `sched/fair: Fix cpu_util runnable_avg arithmetic`
 - `sched/fair: Allow decaying util_est when util_avg > CPU capa`
 - `sched/fair: Fix overflow in update_tg_cfs_runnable()`
@@ -59,6 +61,7 @@
 - `sched/fair: Don't trigger active lb if src_rq->curr is not on_rq`
 - `sched/fair: Check CPU capacity before comparing group types during load balance`
 - `sched/fair: Don't double balance_interval for migrate_misfit`
+- `sched/fair: Do strict inequality check for busiest misfit task group`
 - `sched/fair: Filter false overloaded_group case for EAS`
 
 后续调度器补丁将继续严格遵循“单 patch 审计 → 最小修改 → 本地构建 → 实机测试”流程逐个推进。

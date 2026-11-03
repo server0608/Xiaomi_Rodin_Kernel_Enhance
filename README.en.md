@@ -2,7 +2,7 @@
 
 [![Kernel](https://img.shields.io/badge/kernel-6.6.144_LTS-blue)](https://kernel.org)
 [![Base](https://img.shields.io/badge/base-MiCode%20bsp--rodin--v--oss-orange)](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bsp-rodin-v-oss)
-[![Root](https://img.shields.io/badge/Root-ReSukiSU-green)](https://github.com/ReSukiSU/ReSukiSU)
+[![Root](https://img.shields.io/badge/Root-BakaSU-green)](https://github.com/Baka-SU/BakaSU)
 [![SuSFS](https://img.shields.io/badge/Hiding-SuSFS-green)](https://gitlab.com/simonpunk/susfs4ksu)
 [![License](https://img.shields.io/badge/license-GPL--2.0-lightgrey)](LICENSES)
 
@@ -15,7 +15,7 @@ An enhanced Android kernel for Xiaomi **rodin** devices, built on top of Xiaomi'
 ## Highlights
 
 ### Root & Hiding
-- **ReSukiSU** built-in, integrated from [`ReSukiSU/ReSukiSU` (`main`)](https://github.com/ReSukiSU/ReSukiSU/tree/main)
+- **BakaSU** (formerly ReSukiSU) built-in, integrated from [`Baka-SU/BakaSU` (`main`)](https://github.com/Baka-SU/BakaSU/tree/main)
 - **SuSFS** built-in, integrated from [`omajili-manbu/susfs4ksu` (`gki-android15-6.6-mod`)](https://github.com/omajili-manbu/susfs4ksu/tree/gki-android15-6.6-mod)
 - Able to hide suspicious SELinux contexts/rules from apps, tied to the SuSFS AVC log spoofing switch
 
@@ -47,11 +47,13 @@ The tuning philosophy is **balancing performance and battery life** — all gain
 
 - **Kernel Version**: Linux 6.6.144 (Android 15 GKI)
 - **Target Platform**: Xiaomi Rodin / MT6897 (Dimensity 8400 Ultra)
-- **Stable Baseline**: `5c980c08d0fc`
+- **Source Baseline**: `7f52a0fce3a4`
+- **Root Component**: BakaSU `516d3e87`, Version Code **35257**, UAPI **6**; use the [official manager from the same commit](https://github.com/Baka-SU/BakaSU/actions/runs/41207077584).
+- **Compatibility Fix & Validation**: Shared SELinux helper declarations, visibility and matching 8-argument calls resolve the BakaSU/SUSFS final-link errors; the preinit runner remains disabled. The full local build passed, and the owner confirmed Rodin boot, manager recognition and installed modules. SuSFS hiding effectiveness and long-term stability remain unverified.
 - **Network Stack Optimization**: Kernel-level hard-lock for **BBRv3** TCP congestion control and **FQ** packet scheduler, preventing Android userspace overrides and ensuring system-wide activation
 
-### Verified Scheduler Backports
-The following 8 scheduler backports have been audited, applied, compiled, and individually verified via hardware flashing tests on physical Rodin devices:
+### Included Scheduler Backports
+The following 9 scheduler backports are included. Validation is documented in the respective build and device-test records; a successful build does not imply an independent A/B test.
 - `sched/fair: Fix cpu_util runnable_avg arithmetic`
 - `sched/fair: Allow decaying util_est when util_avg > CPU capa`
 - `sched/fair: Fix overflow in update_tg_cfs_runnable()`
@@ -59,6 +61,7 @@ The following 8 scheduler backports have been audited, applied, compiled, and in
 - `sched/fair: Don't trigger active lb if src_rq->curr is not on_rq`
 - `sched/fair: Check CPU capacity before comparing group types during load balance`
 - `sched/fair: Don't double balance_interval for migrate_misfit`
+- `sched/fair: Do strict inequality check for busiest misfit task group`
 - `sched/fair: Filter false overloaded_group case for EAS`
 
 Subsequent scheduler backports will continue to be audited, built, and hardware-verified step by step.
