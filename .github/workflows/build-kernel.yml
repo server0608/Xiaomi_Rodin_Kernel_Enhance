@@ -44,7 +44,7 @@ env:
   # clang-r596125 预编译目录所在的 googlesource 分支（注意不是
   # mirror-goog-llvm-r596125-release，那是 LLVM 源码镜像，没有预编译产物）
   CLANG_BRANCH: mirror-goog-main-llvm-toolchain-source
-  RSU_REPO: ReSukiSU/ReSukiSU
+  RSU_REPO: Baka-SU/BakaSU
 
 jobs:
   # Cheap pre-flight: the build below takes ~45 min on a 4-core runner, and the
@@ -119,6 +119,11 @@ jobs:
       - name: Record built commit
         id: built
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Validate BakaSU/SUSFS helper interface
+        run: |
+          python3 .github/scripts/ksu_susfs_compat.py
+          git diff --exit-code -- drivers/kernelsu/feature/selinux_hide.c
 
       - name: Free disk space
         run: |
@@ -209,63 +214,62 @@ jobs:
           set -euo pipefail
           # sync-resukisu 落地时固定在 drivers/kernelsu/Kbuild 里的 ReSukiSU commit
           RSU_SHA=$(grep -E '^KSU_COMMIT_SHA[[:space:]]*:= *[0-9a-f]{8}[[:space:]]*$' drivers/kernelsu/Kbuild | head -n1 | awk '{print $3}')
-          echo "landed ReSukiSU commit: ${RSU_SHA:-<none>}"
-          mkdir -p manager-apk
+          RSU_COUNT=$(awk '$1 == "KSU_LOCAL_VERSION" && $2 == ":=" && $3 ~ /^[0-9]+$/ {print $3}' drivers/kernelsu/Kbuild)
+          [ -n "$RSU_SHA" ] && [ -n "$RSU_COUNT" ] || { echo "::error::missing pinned BakaSU version"; exit 1; }
+          RSU_VERSION=$((30000 + RSU_COUNT + 700))
+          RSU_FULL_SHA=$(gh api "repos/$RSU_REPO/commits/$RSU_SHA" --jq '.sha')
+          echo "landed BakaSU commit: $RSU_FULL_SHA (manager version $RSU_VERSION)"
 
-          fetch_apks() { # $1 = ReSukiSU CI run id
-            rm -rf manager manager-spoofed
-            mkdir -p manager manager-spoofed
+          fetch_apks() { # $1 = BakaSU CI run id, matching the pinned commit
+            rm -rf manager manager-spoofed manager-apk
+            mkdir -p manager manager-spoofed manager-apk/standard manager-apk/spoofed
 
-            # 1) Standard Manager-release -> manager/
-            local art_rel
-            art_rel=$(gh api "repos/$RSU_REPO/actions/runs/$1/artifacts?per_page=100" \
-                  --jq '.artifacts[] | select(.name=="Manager-release" and .expired==false) | .id' | head -n1)
+            local artifacts art_rel art_spf apk
+            local -a apks=()
+            artifacts=$(gh api "repos/$RSU_REPO/actions/runs/$1/artifacts?per_page=100") || return 1
+            art_rel=$(printf '%s' "$artifacts" | python3 -c 'import json,sys; print(next((str(a["id"]) for a in json.load(sys.stdin)["artifacts"] if a["name"] == "Manager-release" and not a["expired"]), ""))') || return 1
             [ -n "$art_rel" ] || return 1
-            gh api "repos/$RSU_REPO/actions/artifacts/$art_rel/zip" > "Manager-release.zip"
-            unzip -oq "Manager-release.zip" -d manager
-            find manager -type f -name '*.apk' ! -name '*arm64-v8a*' -delete
-            test -n "$(find manager -type f -name '*.apk')" || return 1
+            gh api "repos/$RSU_REPO/actions/artifacts/$art_rel/zip" > Manager-release.zip || return 1
+            unzip -oq Manager-release.zip -d manager-apk/standard || return 1
+            mapfile -t apks < <(find manager-apk/standard -type f -name "*_${RSU_VERSION}-arm64-v8a-release.apk")
+            [ "${#apks[@]}" -eq 1 ] || { echo "::error::expected one arm64 manager at version $RSU_VERSION"; return 1; }
+            cp "${apks[0]}" manager/ || return 1
 
-            # 2) Spoofed-Manager-release -> manager-spoofed/
-            local art_spf
-            art_spf=$(gh api "repos/$RSU_REPO/actions/runs/$1/artifacts?per_page=100" \
-                  --jq '.artifacts[] | select(.name=="Spoofed-Manager-release" and .expired==false) | .id' | head -n1)
-            [ -n "$art_spf" ] || return 1
-            gh api "repos/$RSU_REPO/actions/artifacts/$art_spf/zip" > "Spoofed-Manager-release.zip"
-            unzip -oq "Spoofed-Manager-release.zip" -d manager-spoofed
-            find manager-spoofed -type f -name '*.apk' ! -name '*arm64-v8a*' -delete
-            test -n "$(find manager-spoofed -type f -name '*.apk')" || return 1
-
-            # Rename spoofed APK so standard and spoofed APKs can coexist in release-assets
-            for f in manager-spoofed/*.apk; do
-              if [ -f "$f" ] && [[ "$f" != *"spoofed"* ]]; then
-                mv "$f" "${f%-release.apk}-spoofed-release.apk" 2>/dev/null || mv "$f" "${f%.apk}-spoofed.apk"
+            # Recent upstream builds publish only the standard manager.
+            # Include the spoofed variant only if the same CI run provides it.
+            art_spf=$(printf '%s' "$artifacts" | python3 -c 'import json,sys; print(next((str(a["id"]) for a in json.load(sys.stdin)["artifacts"] if a["name"] == "Spoofed-Manager-release" and not a["expired"]), ""))') || return 1
+            HAS_SPOOFED_MANAGER=false
+            if [ -n "$art_spf" ]; then
+              gh api "repos/$RSU_REPO/actions/artifacts/$art_spf/zip" > Spoofed-Manager-release.zip || return 1
+              unzip -oq Spoofed-Manager-release.zip -d manager-apk/spoofed || return 1
+              mapfile -t apks < <(find manager-apk/spoofed -type f -name "*_${RSU_VERSION}-arm64-v8a*release.apk")
+              [ "${#apks[@]}" -eq 1 ] || return 1
+              apk=$(basename "${apks[0]}")
+              if [[ "$apk" != *spoofed* ]]; then
+                apk="${apk%-release.apk}-spoofed-release.apk"
               fi
-            done
-
-            local n1 n2
-            n1=$(find manager -type f -name '*.apk' | wc -l)
-            n2=$(find manager-spoofed -type f -name '*.apk' | wc -l)
-            [ "$n1" -ge 1 ] && [ "$n2" -ge 1 ] || { echo "::error::expected arm64-v8a manager APKs in both manager and manager-spoofed, got ($n1, $n2)"; return 1; }
+              cp "${apks[0]}" "manager-spoofed/$apk" || return 1
+              HAS_SPOOFED_MANAGER=true
+            else
+              echo "::notice::matching upstream run has no spoofed manager; publishing standard manager only"
+            fi
           }
 
           RUN_ID=""
-          if [ -n "$RSU_SHA" ]; then
-            for cand in $(gh api "repos/$RSU_REPO/actions/workflows/build-manager.yml/runs?branch=main&status=success&per_page=100" \
-                          --jq ".workflow_runs[] | select(.head_sha | startswith(\"$RSU_SHA\")) | .id"); do
-              echo "trying run $cand (matches landed ReSukiSU commit)"
-              RUN_ID="$cand"; fetch_apks "$cand" && break || RUN_ID=""
-            done
-          fi
-          if [ -z "$RUN_ID" ]; then
-            echo "::warning::no artifacts for ReSukiSU commit ${RSU_SHA:-unknown} - falling back to latest successful main build"
-            for cand in $(gh api "repos/$RSU_REPO/actions/workflows/build-manager.yml/runs?branch=main&status=success&per_page=10" --jq '.workflow_runs[].id'); do
-              echo "trying latest run $cand"
-              RUN_ID="$cand"; fetch_apks "$cand" && break || RUN_ID=""
-            done
-          fi
-          [ -n "$RUN_ID" ] || { echo "::error::no usable ReSukiSU Build Manager artifacts found"; exit 1; }
-          echo "RSU_RUN_URL=https://github.com/$RSU_REPO/actions/runs/$RUN_ID" >> "$GITHUB_ENV"
+          for cand in $(gh api "repos/$RSU_REPO/actions/workflows/build-manager.yml/runs?branch=main&head_sha=$RSU_FULL_SHA&status=success&per_page=100" \
+                        --jq ".workflow_runs[] | select(.head_sha == \"$RSU_FULL_SHA\") | .id"); do
+            echo "trying run $cand (matches pinned BakaSU commit)"
+            if fetch_apks "$cand"; then
+              RUN_ID="$cand"
+              break
+            fi
+          done
+          [ -n "$RUN_ID" ] || { echo "::error::no usable manager artifacts for pinned commit $RSU_FULL_SHA; refusing a mismatched fallback"; exit 1; }
+          {
+            echo "RSU_RUN_URL=https://github.com/$RSU_REPO/actions/runs/$RUN_ID"
+            echo "HAS_SPOOFED_MANAGER=$HAS_SPOOFED_MANAGER"
+            echo "RSU_MANAGER_VERSION=$RSU_VERSION"
+          } >> "$GITHUB_ENV"
           ls -la manager manager-spoofed
 
       - name: Upload AnyKernel3 flashable zip
@@ -285,6 +289,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload ReSukiSU manager APK (spoofed, arm64-v8a)
+        if: env.HAS_SPOOFED_MANAGER == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: rodin-${{ env.KERNEL_RELEASE }}-manager-spoofed
@@ -297,7 +302,8 @@ jobs:
             echo "### Rodin kernel build"
             echo "- kernel: \`${KERNEL_RELEASE}\` (Image.lz4 = lz4 legacy, magic 02214c18 verified)"
             echo "- AK3 flashable zip: artifact \`Rodin-${KERNEL_RELEASE}-AnyKernel3\` (downloaded zip is directly flashable, kernel blob Image = lz4 legacy)"
-            echo "- ReSukiSU manager (arm64-v8a only): artifacts \`rodin-${KERNEL_RELEASE}-manager\` / \`rodin-${KERNEL_RELEASE}-manager-spoofed\` from [CI run]($RSU_RUN_URL)"
+            echo "- BakaSU manager (arm64-v8a): version ${RSU_MANAGER_VERSION}, from the pinned commit's [CI run]($RSU_RUN_URL); spoofed variant included: ${HAS_SPOOFED_MANAGER}"
+            echo "- BakaSU/SUSFS compatibility: shared 8-argument helper interface; preinit runner disabled. Boot, manager recognition and installed modules passed the owner's Rodin test. Hiding effectiveness and long-term stability are not established by the build."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Package artifacts for Release
@@ -309,9 +315,11 @@ jobs:
           AK3_ZIP="Rodin-${KERNEL_RELEASE}-AnyKernel3.zip"
           (cd AnyKernel3 && find . -mindepth 1 -maxdepth 1 -printf '%P\0' \
              | xargs -0 zip -r9 "../release-assets/${AK3_ZIP}")
-          # Matching ReSukiSU manager APKs (standard + spoofed, arm64-v8a)
+          # Exact-commit standard manager, plus spoofed variant if provided upstream.
           cp -f manager/*.apk release-assets/
-          cp -f manager-spoofed/*.apk release-assets/
+          if [ "$HAS_SPOOFED_MANAGER" = true ]; then
+            cp -f manager-spoofed/*.apk release-assets/
+          fi
           ls -la release-assets/
           # kernel.release can carry characters that are invalid in a git tag
           SAFE_RELEASE=$(printf '%s' "$KERNEL_RELEASE" | tr -c 'A-Za-z0-9._-' '-')
@@ -335,9 +343,18 @@ jobs:
           files: release-assets/*
           body: |
             ## 📱 小米 / 红米 Rodin 增强内核 (Xiaomi Rodin Kernel Enhance)
-            > **特性集成 / Features**: ReSukiSU Root + SuSFS 深度隐藏 + BBG 防格机 + 调度器性能调优 + BBRv3 & FQ
+            > **特性集成 / Features**: BakaSU (原 ReSukiSU) Root + SuSFS + BBG + scheduler backports + BBRv3 & FQ
 
             <!-- rodin-build-sha: ${{ steps.built.outputs.sha }} -->
+
+            ### 本次兼容修复与验证范围 (Compatibility & Validation)
+
+            - 统一 BakaSU 与内核侧 SuSFS 的 SELinux 辅助函数声明、可见性和 8 参数调用，修复最终链接失败；保持 preinit runner 禁用。
+              Shared SELinux helper declarations and matching 8-argument calls fix the link failure; the preinit runner remains disabled.
+            - 用户已在 Rodin 测试包上确认正常开机、管理器识别及已安装模块运行正常；这不代表 SuSFS 隐藏效果或长期稳定性已经验证。
+              Owner-tested on Rodin: boot, manager recognition and installed modules. Hiding effectiveness and long-term stability remain unverified.
+            - 配套管理器 Version Code：`${{ env.RSU_MANAGER_VERSION }}`，只取内核固定提交的官方产物；伪装版仅在同次上游构建提供时附带（本次：`${{ env.HAS_SPOOFED_MANAGER }}`）。
+              Manager artifacts must match the pinned kernel component commit; the spoofed variant is optional.
 
             ### 📦 文件下载与使用说明 (Download & Usage)
 
@@ -345,7 +362,7 @@ jobs:
             |---|---|
             | **`${{ env.AK3_ZIP }}`** | **【内核刷机包】AnyKernel3 Flashable Zip**<br>• **中文**：直接在 KernelSU / APatch / TWRP 中刷入，**无需解压**！内核已内置 LZ4 Legacy（魔数 `02214c18`）压缩验证，刷完直接重启设备即可生效。<br>• **English**: Flash directly via KernelSU / APatch / TWRP **without unpacking**. Pre-built with verified LZ4 Legacy compression. Reboot after flashing. |
             | **`*release.apk` (不带 spoofed)** | **【官方管理器·标准版】ReSukiSU Manager (Standard)**<br>• **中文**：标准版 Root 管理器 APP，适合日常使用。<br>• **English**: Official standard Root manager application. |
-            | **`*spoofed-release.apk`** | **【官方管理器·伪装版】ReSukiSU Manager (Spoofed)**<br>• **中文**：具备包名伪装特性的管理器，更适合防银行、政企、游戏等 APP 的 Root 深度检测。<br>• **English**: Package-name spoofed manager for enhanced root hiding against detection. |
+            | **`*spoofed-release.apk`（如有 / if available）** | **【管理器·伪装版】BakaSU Manager (Spoofed)**<br>上游提供时才附带，不承诺绕过应用检测。Included only when provided by the same upstream CI run; detection bypass is not guaranteed. |
 
             > 💡 **安装提示 (Note)**：管理器与内核内置驱动版本严格对应。标准版与伪装版**二选一安装即可**，请勿同时安装两个管理器。<br>
             > *Install EITHER the standard OR the spoofed manager APK (do not install both).*

@@ -171,6 +171,10 @@ jobs:
             echo "ccflags-y += -DKSU_NO_PREINIT" >> drivers/kernelsu/tools/code_generation/code_generation.mk
           fi
 
+      - name: Adapt BakaSU helpers to the in-tree SUSFS interface
+        run: |
+          python3 .github/scripts/ksu_susfs_compat.py
+
       - name: Pin ReSukiSU version in drivers/kernelsu/Kbuild
         run: |
           python3 .github/scripts/ksu_pin_version.py \

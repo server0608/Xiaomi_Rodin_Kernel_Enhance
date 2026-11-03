@@ -45,6 +45,7 @@
 #include "ima.h"
 
 #ifdef CONFIG_KSU_SUSFS
+#include <linux/ksu_susfs_compat.h>
 extern struct selinux_policy *backup_sepolicy;
 extern struct page *fake_status;
 extern struct static_key_false fake_status_initialize_key;
@@ -52,12 +53,6 @@ extern bool ksu_selinux_hide_running __read_mostly;
 extern struct static_key_false susfs_is_avc_log_spoofing_enabled;
 extern bool ksu_selinux_hide_enabled __read_mostly;
 extern void initialize_fake_status(void);
-extern int security_context_to_sid_with_policy(struct selinux_policy *policy, const char *scontext, u32 scontext_len,
-                                               u32 *sid, u32 def_sid, gfp_t gfp_flags);
-extern int security_sid_to_context_with_policy(struct selinux_policy *policy, u32 sid, char **scontext,
-                                               u32 *scontext_len);
-extern void security_compute_av_user_with_policy(struct selinux_policy *policy, u32 ssid, u32 tsid, u16 tclass,
-                                                 struct av_decision *avd);
 #endif // #ifdef CONFIG_KSU_SUSFS
 
 enum sel_inos {
@@ -731,7 +726,8 @@ static ssize_t my_write_context(struct file *file, char *buf, size_t size)
 		goto out;
 	}
 
-	length = security_context_to_sid_with_policy(backup_sepolicy, buf, size, &sid, SECSID_NULL, GFP_KERNEL);
+	length = security_context_to_sid_with_policy(backup_sepolicy, buf, size,
+			&sid, SECSID_NULL, GFP_KERNEL, NULL, NULL);
 	if (length)
 		goto out;
 
