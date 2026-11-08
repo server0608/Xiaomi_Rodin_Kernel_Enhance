@@ -171,6 +171,19 @@ jobs:
             echo "ccflags-y += -DKSU_NO_PREINIT" >> drivers/kernelsu/tools/code_generation/code_generation.mk
           fi
 
+          # 6) Keep ignoring the files the code generators write into the source
+          #    tree. The rsync above replaces drivers/kernelsu/.gitignore with
+          #    upstream's copy, which does not list them, so they would show up
+          #    as untracked noise after every in-tree build.
+          if [ -f drivers/kernelsu/.gitignore ]; then
+            cat >> drivers/kernelsu/.gitignore <<'GITIGNORE'
+
+# Generated at build time by tools/code_generation
+compat/syscall_no.h
+tools/code_generation/syscall_no/syscall_no
+GITIGNORE
+          fi
+
       - name: Adapt BakaSU helpers to the in-tree SUSFS interface
         run: |
           python3 .github/scripts/ksu_susfs_compat.py

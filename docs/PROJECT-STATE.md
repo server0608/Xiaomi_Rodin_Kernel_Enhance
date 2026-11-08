@@ -110,13 +110,18 @@ AOSP 尚未推进到 6.6.145+，因此我们与官方基线严格同步。若需
 | 关键编译开关 | `-DKSU_NO_PREINIT`（**不可移除**） |
 | 宏定义位置 | `tools/code_generation/code_generation.mk`、`tools/code_generation/preinit_runner/preinit_runner.mk`、`.github/workflows/sync-resukisu.yml` |
 
-### 已解决的两个问题
+### 已解决的三个问题
 
 1. **preinit bootloop**（提交 `4d68693d1b80`）
    `preinit/runner.elf` 会在早期阶段劫持 `/system/bin/init`，
    在 HyperOS 上直接触发 bootloop。已禁用并写入 Makefile 与 CI 同步脚本。
 
-2. **SELinux 链接错误**（提交 `7f52a0fce3a4`）
+2. **`.gitignore` 被同步覆盖**
+   `sync-resukisu.yml` 用 `rsync -a --delete` 整体替换 `drivers/kernelsu/`，
+   连上游的 `.gitignore` 一起覆盖，构建产物重新变成未跟踪文件。
+   已在工作流第 6 步追加忽略规则（与 `-DKSU_NO_PREINIT` 同样的处理方式）。
+
+3. **SELinux 链接错误**（提交 `7f52a0fce3a4`）
    BakaSU 的 `security_context_to_sid_with_policy()` 是 8 参数版本，
    SuSFS 调用点传 `NULL` 给未使用的输出指针。已在
    `drivers/kernelsu/feature/selinux_hide.c`、`security/selinux/hooks.c`、
