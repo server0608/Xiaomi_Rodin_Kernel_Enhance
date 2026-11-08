@@ -175,13 +175,17 @@ jobs:
           #    tree. The rsync above replaces drivers/kernelsu/.gitignore with
           #    upstream's copy, which does not list them, so they would show up
           #    as untracked noise after every in-tree build.
+          #
+          #    Written with echo rather than a heredoc: heredoc bodies cannot be
+          #    indented inside a YAML block scalar, and an unindented line ends
+          #    the scalar and breaks the whole workflow file.
           if [ -f drivers/kernelsu/.gitignore ]; then
-            cat >> drivers/kernelsu/.gitignore <<'GITIGNORE'
-
-# Generated at build time by tools/code_generation
-compat/syscall_no.h
-tools/code_generation/syscall_no/syscall_no
-GITIGNORE
+            {
+              echo ''
+              echo '# Generated at build time by tools/code_generation'
+              echo 'compat/syscall_no.h'
+              echo 'tools/code_generation/syscall_no/syscall_no'
+            } >> drivers/kernelsu/.gitignore
           fi
 
       - name: Adapt BakaSU helpers to the in-tree SUSFS interface

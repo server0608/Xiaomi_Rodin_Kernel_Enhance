@@ -37,23 +37,30 @@
    ```
    详见 [`docs/KMI-ABI-CHECK.md`](docs/KMI-ABI-CHECK.md)。
 
-3. **禁止整体 merge kernel.org stable。**
+3. **改 `.github/workflows/` 后必须跑 `scripts/check-workflows.py`。**
+   GitHub 不会运行解析失败的 workflow，而是报一个「零 job 的失败 run」，
+   事件还是 push，很容易误判成任务失败。更糟的是它会掐断
+   `workflow_run` 链，让每日构建和发版静默停摆。
+   典型坑：`run: |` 块标量在第一个缩进不足的行处结束，heredoc 内容顶格写
+   就会把整个文件拆坏。改用 `echo` 逐行追加。
+
+4. **禁止整体 merge kernel.org stable。**
    只做**精选 cherry-pick**。AOSP ACK 分支携带大量 `ANDROID:` 补丁与
    `vendor_hooks`（`kernel/sched/vendor_hooks.c` 单文件就有 120 个导出点），
    整体合并极易静默丢失，导致能开机但调频/调度失效。
 
-4. **禁止恢复 `preinit/runner.elf`。**
+5. **禁止恢复 `preinit/runner.elf`。**
    必须在编译时保持 `-DKSU_NO_PREINIT`。BakaSU 的 preinit 会劫持 PID 1，
    在 HyperOS 上直接 bootloop。该宏定义在：
    - `drivers/kernelsu/tools/code_generation/code_generation.mk`
    - `drivers/kernelsu/tools/code_generation/preinit_runner/preinit_runner.mk`
    - `.github/workflows/sync-resukisu.yml`（同步后自动重新追加，勿删）
 
-5. **BBRv3 + FQ 硬锁不可移除。**
+6. **BBRv3 + FQ 硬锁不可移除。**
    `net/ipv4/sysctl_net_ipv4.c` 与 `net/core/sysctl_net_core.c` 中的
    sysctl 白名单用于拦截 Android userspace（`init.rc`）覆写，是刻意设计。
 
-6. **单 patch 流程，顺序不可跳步：**
+7. **单 patch 流程，顺序不可跳步：**
    ```
    上游 diff 审计 → 最小化改动 → 本地构建 → ABI 校验 → 魔数校验 → 实机 A/B → 提交推送
    ```
@@ -62,7 +69,7 @@
    补丁来源只接受**已合入 mainline 或 stable** 的提交。未合入的 RFC / 提案
    一律暂缓——变砖事故后已确立此策略。
 
-7. **不得虚构收益。**
+8. **不得虚构收益。**
    没有 A/B 数据就不写"提升 X%"。README 措辞保持"反向移植上游修复"。
 
 ## 3. 构建与校验

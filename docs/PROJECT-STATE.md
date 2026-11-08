@@ -196,7 +196,8 @@ Release 命名：`v6.6.144-<BUILD_USER>-g<short-sha>-<YYYYMMDD-HHMM>`
 ## 10. 每次刷机前的强制检查
 
 ```bash
-scripts/abi-guard.py     # ABI 类型大小是否与已验证构建一致（退出码必须为 0）
+scripts/check-workflows.py   # 只在改了 .github/workflows/ 时需要
+scripts/abi-guard.py         # ABI 类型大小是否与已验证构建一致（退出码必须为 0）
 od -An -tx1 -j56 -N4 arch/arm64/boot/Image      # 41 52 4d 64
 od -An -tx1 -N4 arch/arm64/boot/Image.lz4       # 02 21 4c 18
 ```
