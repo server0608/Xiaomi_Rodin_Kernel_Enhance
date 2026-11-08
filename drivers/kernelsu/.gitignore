@@ -25,7 +25,3 @@ ksu_uapi.h
 .clangd
 out
 preinit/runner.elf
-
-# Generated at build time by tools/code_generation
-compat/syscall_no.h
-tools/code_generation/syscall_no/syscall_no
