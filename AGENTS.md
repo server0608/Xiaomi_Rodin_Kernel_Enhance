@@ -109,9 +109,10 @@ curl -fsSL "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/p
 ## 6. 当前状态速查
 
 - 内核 6.6.144，与 AOSP `android15-6.6-lts` **完全同步**（零落后）。
-- 已合入 backport **17 个**：9 个已提交，8 个待实机验证
-  （调度 4 + 内存 2 + 网络 1 + 配置 1）。
-- 待验证刷机包：`out/AnyKernel3-Rodin-6.6.144-...-840883-*.zip`
+- 已合入 backport **17 个**：9 个早期提交 + 8 个 2026-11-08 实机验证通过
+  （调度 6 + 内存 2 + 网络 1 + 空闲 2，其中 2 个精选自 6.18）。
+- 全部通过 `scripts/abi-guard.py` 校验，10783 个 ABI 类型无变化。
+- 最新刷机包：`out/AnyKernel3-Rodin-6.6.144-...-840894-g8d7f2cae57bd-dirty-20261108-2326.zip`
 - 配套管理器：BakaSU 版本号 **35257**，内核模块 commit `516d3e87`。
 
 完整台账见 [`docs/PROJECT-STATE.md`](docs/PROJECT-STATE.md)。

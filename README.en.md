@@ -47,13 +47,19 @@ The tuning philosophy is **balancing performance and battery life** — all gain
 
 - **Kernel Version**: Linux 6.6.144 (Android 15 GKI)
 - **Target Platform**: Xiaomi Rodin / MT6897 (Dimensity 8400 Ultra)
-- **Source Baseline**: `7f52a0fce3a4`
+- **Source Baseline**: `c57c72905804` (ACK merge point `67fa9c004012`)
 - **Root Component**: BakaSU `516d3e87`, Version Code **35257**, UAPI **6**; use the [official manager from the same commit](https://github.com/Baka-SU/BakaSU/actions/runs/41207077584).
 - **Compatibility Fix & Validation**: Shared SELinux helper declarations, visibility and matching 8-argument calls resolve the BakaSU/SUSFS final-link errors; the preinit runner remains disabled. The full local build passed, and the owner confirmed Rodin boot, manager recognition and installed modules. SuSFS hiding effectiveness and long-term stability remain unverified.
 - **Network Stack Optimization**: Kernel-level hard-lock for **BBRv3** TCP congestion control and **FQ** packet scheduler, preventing Android userspace overrides and ensuring system-wide activation
+- **ABI Protection**: `scripts/abi-guard.py` compares the size of all 10783 frozen ABI types after every build and rejects any struct layout change. Prebuilt vendor modules are compiled against that layout, and the kernel does not refuse a module whose symbol CRCs mismatch, so this check is mandatory before flashing.
 
-### Included Scheduler Backports
-The following 9 scheduler backports are included. Validation is documented in the respective build and device-test records; a successful build does not imply an independent A/B test.
+### Included Upstream Backports
+
+The following 17 backports are included. Validation is documented in the
+respective build and device-test records; a successful build does not imply an
+independent A/B test.
+
+**Scheduling (`sched/fair`)**
 - `sched/fair: Fix cpu_util runnable_avg arithmetic`
 - `sched/fair: Allow decaying util_est when util_avg > CPU capa`
 - `sched/fair: Fix overflow in update_tg_cfs_runnable()`
@@ -63,8 +69,27 @@ The following 9 scheduler backports are included. Validation is documented in th
 - `sched/fair: Don't double balance_interval for migrate_misfit`
 - `sched/fair: Do strict inequality check for busiest misfit task group`
 - `sched/fair: Filter false overloaded_group case for EAS`
+- `sched/fair: Only update stats for allowed CPUs when looking for dst group`
+- `sched/fair: optimize the PLACE_LAG when se->vlag is zero`
+- `sched/fair: Update overutilized detection`
+- `sched/balance: Skip unnecessary updates to idle load balancer's flags`
 
-Subsequent scheduler backports will continue to be audited, built, and hardware-verified step by step.
+**Scheduling / idle**
+- `sched: idle: Optimize the generic idle loop by removing needless memory barrier`
+
+**Frequency scaling**
+- `cpufreq/sched: Explicitly synchronize limits_changed flag handling`
+
+**Memory**
+- `mm/migrate: report RCU-tasks quiescent states in migrate_pages_batch()`
+
+**Networking**
+- `net/sched: fq: add overflow bounds to quantum and initial quantum`
+
+Every candidate is audited individually, kept to a minimal diff, built locally,
+checked against the frozen GKI ABI, and only then verified on hardware. A patch
+that changes the layout of a struct in the frozen ABI is rejected regardless of
+its benefit, because prebuilt vendor modules are compiled against that layout.
 
 ## Supported Devices
 

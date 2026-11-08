@@ -155,6 +155,82 @@
 - **结论**：合入（本地 `4757542649af`）。内存压力下压缩/迁移场景直接受益。
 
 
+## 来自 6.18 的候选（2026-11-08 审计）
+
+背景：设备锁定在 GKI `android15-6.6` 世代，无法整体升级到 6.12/6.18
+（KMI 世代不同，闭源模块无法跨世代加载）。因此只从新内核中**精选**可独立
+回移、且不改结构体布局的改进。
+
+### 已合入
+
+#### `8e113df990c9` sched: idle: remove needless memory barrier
+
+- `do_idle()` 的 `while (!need_resched())` 循环里有 `rmb()`。
+- 来源是远古 x86 代码（`cpu_idle_map`/`pm_idle`），相关代码早已删除，
+  该屏障已无任何需要排序的访问。
+- arm64 上 `rmb()` 是 `dmb ishld`，是真实指令。**每次 CPU 进入 idle 都要执行**，
+  是手机最高频的路径之一。
+- 改动：删除 1 行。
+- **结论**：合入。
+
+#### `f90cc919f9e5` sched/balance: Skip unnecessary updates to idle load balancer's flags
+
+- `kick_ilb()` 在请求的 flags 已全部置位时仍会执行 `atomic_fetch_or`，
+  甚至发出 IPI。
+- 改动：`atomic_fetch_or` 之前先读一次，若 `flags` 已全部置位则直接返回。
+- 减少 idle load balance 路径上的原子 RMW 与 IPI。
+- **结论**：合入。
+
+### 已在树中（无需重复移植）
+
+| 上游 | 内容 | 说明 |
+|---|---|---|
+| `50181c0cff31` | sched/pelt: 避免低估任务利用率 | 6.6 用 `dequeued` 而非 `enqueued`，已有等价实现 |
+| `23c9519def98` | sched/uclamp: feec() 早退条件修正 | 树内已是 `!task_util_est(p) && p_util_min == 0` |
+
+### 已排除
+
+#### `570c8efd5eb7` sched/psi: Optimize psi_group_change() cpu_clock() usage
+
+- **拒绝理由**：把 `seqcount_t seq` 移出 `struct psi_group_cpu`，
+  并调整 `tasks[]` 对齐。**`psi_group_cpu` 在冻结 ABI 中**
+  （`android/abi_gki_aarch64.stg` 可查到）。违反第 1 条硬约束。
+
+#### `90ca9410dab2` sched/uclamp: Align uclamp and util_est
+
+- **拒绝理由**：依赖 `p->se.sched_delayed` 与 `ENQUEUE_DELAYED`，
+  这是 6.8 引入的 delayed dequeue 机制，6.6 不具备。
+
+#### `d34e798094ca` sched/fair: Refactor can_migrate_task() to eliminate looping
+
+- **拒绝理由**：依赖 `cpumask_first_and_and()`，6.6 无此辅助函数。
+  自行补实现会扩大改动面，收益不足以抵消风险。
+
+#### `82e9d0456e06` sched/fair: Avoid re-setting virtual deadline on migrations
+
+- **拒绝理由**：需要 EEVDF `rel_deadline` 字段（`struct sched_entity`），
+  与 `6d71a9c61604` 同源问题，破坏 KMI。
+
+#### `2ae891b82695` sched: Reduce the default slice
+
+- **拒绝理由**：本内核 `sysctl_sched_base_slice` 已调为 700us，
+  低于上游默认 3ms，无需再降。
+
+#### `872aa4de1888` sched/fair: Use READ_ONCE() to read sg->asym_prefer_cpu
+
+- **暂缓**：属 KCSAN 数据竞争标注，对性能无实质影响。
+  且本树 `update_sd_pick_busiest()` 的 `group_asym_packing` 分支结构与
+  上游不同，需改写而非直接套用。
+
+### 未采用的方向
+
+- **EAS 能耗计算 O(N)→O(1)**：2026-02 提案，未进 mainline。
+- **EAS push task 机制（6 补丁系列）**：改动面大，且引入新的调度路径。
+- **sched_ext**：Android GKI 不启用，且与本设备无关。
+- **NUMA 相关**：手机单节点，无意义。
+
+---
+
 ## 已拒绝
 
 ### `CONFIG_READ_ONLY_THP_FOR_FS=y` — **导致实机变砖，已回退**

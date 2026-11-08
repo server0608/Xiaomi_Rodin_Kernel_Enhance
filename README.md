@@ -47,13 +47,18 @@
 
 - **内核版本**：Linux 6.6.144 (Android 15 GKI)
 - **目标平台**：Xiaomi Rodin / MT6897 (Dimensity 8400 Ultra)
-- **源码基线**：`7f52a0fce3a4`
+- **源码基线**：`c57c72905804`（上游 ACK 合并点 `67fa9c004012`）
 - **Root 组件**：BakaSU `516d3e87`，Version Code **35257**，UAPI **6**；请使用[同提交官方管理器](https://github.com/Baka-SU/BakaSU/actions/runs/41207077584)。
 - **兼容修复与验证**：统一 BakaSU/SuSFS 的 SELinux 辅助函数声明、可见性及 8 参数调用，修复最终链接错误；保持 preinit runner 禁用。本地完整构建通过，用户已确认 Rodin 正常开机、管理器识别和已安装模块运行正常；SuSFS 隐藏效果及长期稳定性尚未验证。
 - **网络栈优化**：内核层硬锁定 **BBRv3** 拥塞控制与 **FQ** 队列调度，拦截 Android userspace 脚本覆写，全系统开机自启生效
+- **ABI 保护机制**：`scripts/abi-guard.py` 在每次构建后比对 10783 个冻结 ABI 类型的大小，任何结构体布局变化立即拦截。闭源厂商模块按固定布局编译，内核又不会拒绝 CRC 不匹配的模块，所以这项检查是刷机前的必需步骤。
 
-### 已合入的调度器 Backport
-以下 9 个 scheduler backport 已合入；验证范围以各次构建与实机测试记录为准，不将编译通过等同于独立 A/B 验证。
+### 已合入的上游 Backport
+
+以下 17 个 backport 已合入。验证范围以各次构建与实机测试记录为准，
+不将编译通过等同于独立 A/B 验证。
+
+**调度（`sched/fair`）**
 - `sched/fair: Fix cpu_util runnable_avg arithmetic`
 - `sched/fair: Allow decaying util_est when util_avg > CPU capa`
 - `sched/fair: Fix overflow in update_tg_cfs_runnable()`
@@ -63,8 +68,25 @@
 - `sched/fair: Don't double balance_interval for migrate_misfit`
 - `sched/fair: Do strict inequality check for busiest misfit task group`
 - `sched/fair: Filter false overloaded_group case for EAS`
+- `sched/fair: Only update stats for allowed CPUs when looking for dst group`
+- `sched/fair: optimize the PLACE_LAG when se->vlag is zero`
+- `sched/fair: Update overutilized detection`
+- `sched/balance: Skip unnecessary updates to idle load balancer's flags`
 
-后续调度器补丁将继续严格遵循“单 patch 审计 → 最小修改 → 本地构建 → 实机测试”流程逐个推进。
+**调度 / 空闲**
+- `sched: idle: Optimize the generic idle loop by removing needless memory barrier`
+
+**调频**
+- `cpufreq/sched: Explicitly synchronize limits_changed flag handling`
+
+**内存**
+- `mm/migrate: report RCU-tasks quiescent states in migrate_pages_batch()`
+
+**网络**
+- `net/sched: fq: add overflow bounds to quantum and initial quantum`
+
+后续补丁将继续严格遵循“单 patch 审计 → 最小修改 → 本地构建 → ABI 校验 →
+实机测试”流程逐个推进。
 
 ## 支持设备
 
