@@ -77,7 +77,7 @@ independent A/B test.
 **Scheduling / idle**
 - `sched: idle: Optimize the generic idle loop by removing needless memory barrier`
 
-**Frequency scaling**
+**Frequency scaling** (inert on this device: MTK's `cpufreq_sugov_ext` module is the active governor)
 - `cpufreq/sched: Explicitly synchronize limits_changed flag handling`
 
 **Memory**

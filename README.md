@@ -76,7 +76,7 @@
 **调度 / 空闲**
 - `sched: idle: Optimize the generic idle loop by removing needless memory barrier`
 
-**调频**
+**调频**（本机不生效：实际调频器为 MTK 的 `cpufreq_sugov_ext` 模块）
 - `cpufreq/sched: Explicitly synchronize limits_changed flag handling`
 
 **内存**

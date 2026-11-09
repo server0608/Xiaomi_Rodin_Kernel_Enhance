@@ -97,6 +97,15 @@
 
 ### 补丁 10 — `79443a7e9da3` Explicitly synchronize limits_changed flag
 
+> **2026-11-09 实机核查：本补丁在本设备上不生效。**
+> rodin 实际使用的调频器是联发科的 `cpufreq_sugov_ext` 模块
+> （`/vendor/lib/modules/cpufreq_sugov_ext.ko`，vermagic
+> `6.6.77-android15-8-g358a69b2ec0f-4k`），不是树内的 `schedutil`。
+> 实测 `scaling_governor` 为 `sugov_ext`，且 `map_util_perf()` /
+> `get_capacity_ref_freq()` 均未导出，模块无法调用。
+> 因此这 24 行改动是死代码，**不得在 README 中宣称调频收益**。
+> 保留原因：无副作用，且若将来切回 `schedutil` 即生效。
+
 - **问题**：`sugov_should_update_freq()` 中清 `limits_changed` 与
   `cpufreq_driver_resolve_freq()` 读取策略上限之间缺少内存序约束。
   理论上可被重排，导致新的调频上限**长时间不生效**——CPU 卡在低频。

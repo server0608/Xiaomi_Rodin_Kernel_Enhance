@@ -106,6 +106,14 @@ curl -fsSL "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/p
 
 ## 5. 环境注意事项
 
+- **设备上装了 Scene（`com.omarea.vtools`）**，root 常驻并主动锁 CPU
+  频率下限（limiter `p2` 最低 1.8–2.1 GHz）。排查功耗/性能问题时必须先确认
+  它的 scheme，否则会误判成内核问题。详见
+  [`docs/PROJECT-STATE.md`](docs/PROJECT-STATE.md) 第 9.5 节。
+- **本机实际调频器是 MTK 的 `cpufreq_sugov_ext` 模块**，不是树内
+  `schedutil`。改 `kernel/sched/cpufreq_schedutil.c` 在本设备上无效。
+- **`mt6375-gauge/current_now` 是无效值**（恒定 1200）。真实电流读
+  `/sys/class/power_supply/battery/current_now`（单位 µA，需 root）。
 - **`web_search` 不要指定 `provider` 参数。** 传了会强制校验对应 API key 而失败；
   只传 `queries: [...]` 即走默认托管通道。
 - 拉取 GitHub 受阻时用 `https://gh-proxy.com/` 前缀。

@@ -193,6 +193,60 @@ Release 命名：`v6.6.144-<BUILD_USER>-g<short-sha>-<YYYYMMDD-HHMM>`
 - [ ] 从设备拉取厂商 `.ko`，跑一次完整 CRC 基线，建立出厂 ABI 指纹
 - [ ] 补齐中文 README 的 backport 数量（当前写的是 9 个，实际 17 个）
 
+## 9.5 实机功耗排查记录（2026-11-09）
+
+用户反馈续航明显下降。用 ADB 采集数据后的结论：
+
+### 关键测量
+
+| 指标 | 值 | 判读 |
+|---|---|---|
+| 息屏待机电流 | 59–78 mA | 正常（约 1.1%/h） |
+| 放电构成 | 亮屏 **52%** / 息屏 7% / Doze 1% | 问题在亮屏使用 |
+| Doze 累计 | 4.5h 内仅 6m50s | Doze 几乎不进入 |
+| 换出总量 | 17.1M 页 ≈ 68 GB | 内存压力大，但换出已停止 |
+
+### 根因：Scene（`com.omarea.vtools`）的高性能调度
+
+`scene-daemon` 以 root 常驻，`profile.json` 的 limiter 直接锁高频下限：
+
+```json
+"p2": { "cpus": [
+  { "max": 2100000, "min": 1800000 },
+  { "max": 2600000, "min": 2100000 },
+  { "max": 2800000, "min": 2100000 } ] }
+```
+
+scheme 同时抬高上限：`performance` = 2.1/2.8/3.0 GHz，
+`fast` 更高。并通过 `/proc/easmgr/eas_ioctl` 写 EAS 边距。
+
+实测抓到：`policy4 min=2200000 cur=2800000`，息屏状态下
+电流飙到 1.0–2.6 A；静置 60 秒后回到 700 MHz。
+
+**结论：与内核补丁无关。** 这是用户态调度工具的行为。
+
+### 附带纠正：补丁 10 在本机不生效
+
+实际调频器是 MTK 的 `cpufreq_sugov_ext` 模块，不是树内 `schedutil`。
+详见 [`PATCH-AUDIT.md`](PATCH-AUDIT.md) 补丁 10。
+
+### 可复用的排查方法
+
+```bash
+# 真实电流（注意：mt6375-gauge/current_now 是无效值）
+adb shell su -c 'cat /sys/class/power_supply/battery/current_now'   # uA
+
+# 是否被锁高频
+for p in policy0 policy4 policy7; do
+  adb shell "cat /sys/devices/system/cpu/cpufreq/$p/scaling_min_freq"
+done
+
+# 放电构成
+adb shell "dumpsys batterystats --charged | grep -E 'Amount discharged'"
+
+# 采样时必须静置，adb 命令本身会唤醒设备并触发 boost
+```
+
 ## 10. 每次刷机前的强制检查
 
 ```bash
