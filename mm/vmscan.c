@@ -6130,6 +6130,24 @@ static ssize_t enabled_store(struct kobject *kobj, struct kobj_attribute *attr,
 	else if (kstrtouint(buf, 0, &caps))
 		return -EINVAL;
 
+	/*
+	 * Keep MGLRU active.
+	 *
+	 * Xiaomi's init.rc disables MGLRU whenever
+	 * persist.sys.stability.SmartCacheEnable is true, handing reclaim over
+	 * to a vendor feature (SmartCache) that this kernel does not implement:
+	 * neither /sys/kernel/smart_cache nor /dev/memcg/memory.mctrl.* exists.
+	 * With both mechanisms absent the device falls back to the legacy LRU
+	 * and free memory drains continuously (350 MB -> 101 MB in two
+	 * minutes). Refuse to clear the core algorithm so a userspace property
+	 * cannot reintroduce that state.
+	 */
+	if (!(caps & BIT(LRU_GEN_CORE))) {
+		pr_info("lru_gen: keeping MGLRU enabled, ignoring request for caps 0x%x\n",
+			caps);
+		return len;
+	}
+
 	for (i = 0; i < NR_LRU_GEN_CAPS; i++) {
 		bool enabled = caps & BIT(i);
 

@@ -295,6 +295,29 @@ adb shell su -c 'echo 7 > /sys/kernel/mm/lru_gen/enabled'                # 立�
 **结论**：MGLRU 的作用是让空闲内存不再持续流失，代价是 kswapd 多做约
 0.4% 的 CPU。**不能据此宣称省电**；它的价值在于内存稳定性。
 
+### 内核级硬锁
+
+仅靠属性不够——系统更新或恢复出厂可能重置 `persist.*`。因此在
+`mm/vmscan.c` 的 `enabled_store()` 中拒绝清除 `LRU_GEN_CORE`：
+
+```c
+if (!(caps & BIT(LRU_GEN_CORE))) {
+        pr_info("lru_gen: keeping MGLRU enabled, ignoring request for caps 0x%x\n",
+                caps);
+        return len;
+}
+```
+
+只拦核心算法，`MM_WALK` / `NONLEAF_YOUNG` 等可选位仍可单独开关。
+
+验证：
+
+```bash
+adb shell su -c 'echo 0 > /sys/kernel/mm/lru_gen/enabled'
+adb shell su -c 'cat /sys/kernel/mm/lru_gen/enabled'   # 仍应为 0x0003
+adb shell su -c 'dmesg | grep "keeping MGLRU"'
+```
+
 ### 教训
 
 小米原厂内核可能带有树内没有的私有特性，而 userspace 的 init.rc 会据此
