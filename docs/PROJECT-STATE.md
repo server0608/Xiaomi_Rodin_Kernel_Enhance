@@ -247,6 +247,60 @@ adb shell "dumpsys batterystats --charged | grep -E 'Amount discharged'"
 # 采样时必须静置，adb 命令本身会唤醒设备并触发 boost
 ```
 
+## 9.6 MGLRU 被禁用（2026-11-09 发现并修复）
+
+### 现象
+
+`kswapd0` 在 top 中一度占到 39% CPU，空闲内存持续流失到 100–130 MB。
+
+### 根因：小米 SmartCache 缺失导致两边落空
+
+```
+/vendor/etc/init/hw/init.mt6899.rc   (MTK)
+    write /sys/kernel/mm/lru_gen/enabled y      ← MTK 想启用 MGLRU
+
+/system/etc/init/hw/init.rc          (小米)
+    on property:persist.sys.stability.SmartCacheEnable=true
+        write /sys/kernel/mm/lru_gen/enabled 0  ← 关掉 MGLRU，让位给 SmartCache
+```
+
+但 **SmartCache 是小米私有内核补丁**（`/sys/kernel/smart_cache/*`、
+`/dev/memcg/memory.mctrl.*`），既不在 AOSP 基线里，**也不在本仓库的树里**：
+
+```bash
+$ ls /sys/kernel/smart_cache
+No such file or directory
+$ grep -rn smart_cache --include='*.c' .
+（无结果）
+```
+
+结果：MGLRU 被关，SmartCache 又不存在 → **退回老式 LRU**。
+
+### 修复
+
+```bash
+adb shell su -c 'setprop persist.sys.stability.SmartCacheEnable false'   # 重启后生效
+adb shell su -c 'echo 7 > /sys/kernel/mm/lru_gen/enabled'                # 立即生效
+```
+
+运行时值应为 `0x0003`（MM_WALK | NONLEAF）。
+
+### 实测效果（各 120 秒）
+
+| | kswapd0 CPU | MemFree |
+|---|---|---|
+| MGLRU 关 | 0.4% | 350 → **101 MB**（流失） |
+| MGLRU 开 | 0.8% | 172 → **194 MB**（稳住） |
+
+**结论**：MGLRU 的作用是让空闲内存不再持续流失，代价是 kswapd 多做约
+0.4% 的 CPU。**不能据此宣称省电**；它的价值在于内存稳定性。
+
+### 教训
+
+小米原厂内核可能带有树内没有的私有特性，而 userspace 的 init.rc 会据此
+关闭标准机制。遇到异常行为时，应比对 init.rc 的写入与本内核实际提供的
+sysfs 节点。
+
 ## 10. 每次刷机前的强制检查
 
 ```bash
