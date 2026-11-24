@@ -237,7 +237,10 @@ static bool remove_migration_pte(struct folio *dst,
 
 		folio_get(folio);
 		pte = mk_pte(page, READ_ONCE(vma->vm_page_prot));
-		old_pte = ptep_get(pvmw.pte);
+		if (folio_test_hugetlb(folio))
+			old_pte = huge_ptep_get(pvmw.pte);
+		else
+			old_pte = ptep_get(pvmw.pte);
 		if (pte_swp_soft_dirty(old_pte))
 			pte = pte_mksoft_dirty(pte);
 
