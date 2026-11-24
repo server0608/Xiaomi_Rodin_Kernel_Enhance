@@ -102,16 +102,7 @@ EXPORT_SYMBOL_GPL(kvm_caps);
 #define emul_to_vcpu(ctxt) \
 	((struct kvm_vcpu *)(ctxt)->vcpu)
 
-/* EFER defaults:
- * - enable syscall per default because its emulated by KVM
- * - enable LME and LMA per default on 64 bit KVM
- */
-#ifdef CONFIG_X86_64
-static
-u64 __read_mostly efer_reserved_bits = ~((u64)(EFER_SCE | EFER_LME | EFER_LMA));
-#else
-static u64 __read_mostly efer_reserved_bits = ~((u64)EFER_SCE);
-#endif
+static u64 __read_mostly efer_reserved_bits;
 
 static u64 __read_mostly cr4_reserved_bits = CR4_RESERVED_BITS;
 
@@ -9597,6 +9588,15 @@ static int __kvm_x86_vendor_init(struct kvm_x86_init_ops *ops)
 	if (boot_cpu_has(X86_FEATURE_ARCH_CAPABILITIES))
 		rdmsrl(MSR_IA32_ARCH_CAPABILITIES, host_arch_capabilities);
 
+	/*
+	 * EFER defaults, re-initialized on every vendor load:
+	 * - enable syscall per default because its emulated by KVM
+	 * - enable LME and LMA per default on 64 bit KVM
+	 */
+	efer_reserved_bits = ~((u64)EFER_SCE);
+	if (IS_ENABLED(CONFIG_X86_64))
+		efer_reserved_bits &= ~((u64)(EFER_LME | EFER_LMA));
+
 	r = ops->hardware_setup();
 	if (r != 0)
 		goto out_mmu_exit;
@@ -11612,7 +11612,8 @@ static bool kvm_is_valid_sregs(struct kvm_vcpu *vcpu, struct kvm_sregs *sregs)
 	}
 
 	return kvm_is_valid_cr4(vcpu, sregs->cr4) &&
-	       kvm_is_valid_cr0(vcpu, sregs->cr0);
+	       kvm_is_valid_cr0(vcpu, sregs->cr0) &&
+	       kvm_valid_efer(vcpu, sregs->efer);
 }
 
 static int __set_sregs_common(struct kvm_vcpu *vcpu, struct kvm_sregs *sregs,
