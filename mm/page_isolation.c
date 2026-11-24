@@ -374,7 +374,11 @@ static int isolate_single_pageblock(unsigned long boundary_pfn, int flags,
 		pfn = page_to_pfn(page);
 
 		if (PageBuddy(page)) {
-			int order = buddy_order(page);
+			unsigned int order = buddy_order_unsafe(page);
+
+			/* buddy_order_unsafe() is racy. Validate the order before shifting. */
+			if (order > MAX_ORDER)
+				goto failed;
 
 			/* move_freepages_block_isolate() handled this */
 			VM_WARN_ON_ONCE(pfn + (1 << order) > boundary_pfn);
