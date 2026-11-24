@@ -2454,6 +2454,8 @@ static void drain_all_stock(struct mem_cgroup *root_memcg)
 				drain_local_stock(&stock->work);
 			else if (!cpu_is_isolated(cpu))
 				schedule_work_on(cpu, &stock->work);
+			else
+				clear_bit(FLUSHING_CACHED_CHARGE, &stock->flags);
 		}
 	}
 	migrate_enable();
