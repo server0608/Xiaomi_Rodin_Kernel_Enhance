@@ -1121,6 +1121,8 @@ static int redrat3_dev_probe(struct usb_interface *intf,
 	return 0;
 
 led_free:
+	/* ANDROID: rc_unregister_device() also frees rr3->rc in this tree */
+	rc_unregister_device(rr3->rc);
 	led_classdev_unregister(&rr3->led);
 redrat_free:
 	redrat3_delete(rr3, rr3->udev);
