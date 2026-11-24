@@ -245,7 +245,7 @@ static int rxe_qp_init_req(struct rxe_dev *rxe, struct rxe_qp *qp,
 	err = sock_create_kern(&init_net, AF_INET, SOCK_DGRAM, 0, &qp->sk);
 	if (err < 0)
 		return err;
-	qp->sk->sk->sk_user_data = qp;
+	qp->sk->sk->sk_user_data = (void *)(uintptr_t)qp->elem.index;
 
 	/* pick a source UDP port number for this QP based on
 	 * the source QPN. this spreads traffic for different QPs
@@ -807,6 +807,16 @@ int rxe_qp_chk_destroy(struct rxe_qp *qp)
 	 */
 	if (atomic_read(&qp->mcg_num)) {
 		rxe_dbg_qp(qp, "Attempt to destroy while attached to multicast group\n");
+		return -EBUSY;
+	}
+
+	/* An attempt to destroy a QP while it still holds references for
+	 * bound type 2 memory windows will fail immediately.  Otherwise the
+	 * QP is freed with those references outstanding and the windows are
+	 * left pointing at freed memory (use-after-free).
+	 */
+	if (atomic_read(&qp->mw_bind_num)) {
+		rxe_dbg_qp(qp, "Attempt to destroy while type 2 MWs are bound\n");
 		return -EBUSY;
 	}
 

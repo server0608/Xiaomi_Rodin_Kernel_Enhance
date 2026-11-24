@@ -1056,6 +1056,9 @@ int mlx5_ib_destroy_cq(struct ib_cq *cq, struct ib_udata *udata)
 	struct mlx5_ib_cq *mcq = to_mcq(cq);
 	int ret;
 
+	if (!cq->uobject)
+		cancel_work_sync(&mcq->notify_work);
+
 	ret = mlx5_core_destroy_cq(dev->mdev, &mcq->mcq);
 	if (ret)
 		return ret;
