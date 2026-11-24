@@ -195,8 +195,19 @@ static u64 get_pvm_id_aa64isar2(const struct kvm_vcpu *vcpu)
 
 static u64 get_pvm_id_aa64mmfr0(const struct kvm_vcpu *vcpu)
 {
-	return get_restricted_features_unsigned(id_aa64mmfr0_el1_sys_val,
-						PVM_ID_AA64MMFR0_ALLOW);
+	u64 value = get_restricted_features_unsigned(id_aa64mmfr0_el1_sys_val,
+						     PVM_ID_AA64MMFR0_ALLOW);
+
+	value |= SYS_FIELD_PREP(ID_AA64MMFR0_EL1, TGRAN4,
+		min_t(int, cpuid_feature_extract_signed_field(id_aa64mmfr0_el1_sys_val,
+							 ID_AA64MMFR0_EL1_TGRAN4_SHIFT),
+		      ID_AA64MMFR0_EL1_TGRAN4_IMP));
+	value |= SYS_FIELD_PREP(ID_AA64MMFR0_EL1, TGRAN64,
+		min_t(int, cpuid_feature_extract_signed_field(id_aa64mmfr0_el1_sys_val,
+							 ID_AA64MMFR0_EL1_TGRAN64_SHIFT),
+		      ID_AA64MMFR0_EL1_TGRAN64_IMP));
+
+	return value;
 }
 
 static u64 get_pvm_id_aa64mmfr1(const struct kvm_vcpu *vcpu)
