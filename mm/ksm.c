@@ -2925,9 +2925,20 @@ struct folio *ksm_might_need_to_copy(struct folio *folio,
 			return folio;	/* no need to copy it */
 	} else if (!anon_vma) {
 		return folio;		/* no need to copy it */
-	} else if (folio->index == linear_page_index(vma, addr) &&
-			anon_vma->root == vma->anon_vma->root) {
-		return folio;		/* still no need to copy it */
+	} else if (folio->index == linear_page_index(vma, addr)) {
+		struct anon_vma_chain *avc;
+
+		/*
+		 * Careful: anon_vma might have been freed, so we cannot safely
+		 * dereference it. Add a fast path before we walk the anon_vma chain.
+		 */
+		if (anon_vma == vma->anon_vma || anon_vma == vma->anon_vma->root)
+			return folio;
+
+		list_for_each_entry(avc, &vma->anon_vma_chain, same_vma) {
+			if (avc->anon_vma == anon_vma)
+				return folio;
+		}
 	}
 	if (PageHWPoison(page))
 		return ERR_PTR(-EHWPOISON);
