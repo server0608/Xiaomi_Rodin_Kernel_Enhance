@@ -10,7 +10,7 @@ name: build-kernel
 # 触发方式（三选一，均会走一遍 gate 去重）：
 #   - workflow_dispatch：手动触发（可勾选 force 强制重建）
 #   - workflow_run：sync-android15-6.6-lts / sync-resukisu 成功后的链式触发
-#   - schedule：每日 03:15 UTC+8 兜底（同步工作流未触发构建时补一次）
+#   - schedule：每日 03:19 UTC+8 兜底（同步工作流未触发构建时补一次）
 # gate 会读取最新 Release body 中的 `rodin-build-sha` 标记：若分支 tip 已经
 # 构建并发布过，则跳过本次编译（全量 ThinLTO 约 35-45 分钟，避免重复出包）。
 
@@ -22,7 +22,7 @@ on:
         type: boolean
         default: false
   schedule:
-    - cron: '15 19 * * *'   # daily 03:15 UTC+8, runs after sync workflows
+    - cron: '19 19 * * *'   # daily 03:19 UTC+8, runs after sync workflows (off-peak minute; re-registered 2026-11-24)
   workflow_run:
     workflows: ["sync-android15-6.6-lts", "sync-resukisu"]
     types:

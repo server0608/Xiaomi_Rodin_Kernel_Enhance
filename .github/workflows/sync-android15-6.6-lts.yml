@@ -9,7 +9,7 @@ name: sync-android15-6.6-lts
 
 on:
   schedule:
-    - cron: '30 18 * * *'   # daily 02:30 UTC+8
+    - cron: '37 18 * * *'   # daily 02:37 UTC+8 (off-peak minute; re-registered 2026-11-24)
   workflow_dispatch:
 
 permissions:

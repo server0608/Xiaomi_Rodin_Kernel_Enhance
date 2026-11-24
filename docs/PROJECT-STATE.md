@@ -132,9 +132,11 @@ AOSP 尚未推进到 6.6.145+，因此我们与官方基线严格同步。若需
 
 | 工作流 | 触发 | 作用 |
 |---|---|---|
-| `sync-android15-6.6-lts.yml` | 每日 02:30 UTC+8 | 合并 AOSP ACK 基线 |
-| `sync-resukisu.yml` | 每日 02:50 UTC+8 | 同步 BakaSU 并保持兼容修复 |
-| `build-kernel.yml` | 每日 03:15 UTC+8 + 手动 | 构建、打包、发 Release |
+| `sync-android15-6.6-lts.yml` | 每日 02:37 UTC+8 (`37 18 * * *`) | 合并 AOSP ACK 基线 |
+| `sync-resukisu.yml` | 每日 02:53 UTC+8 (`53 18 * * *`) | 同步 BakaSU 并保持兼容修复 |
+| `build-kernel.yml` | 每日 03:19 UTC+8 (`19 19 * * *`) + `workflow_run` + 手动 | 构建、打包、发 Release |
+
+> **2026-11-24 定时调度修复**：三个工作流自 2026-11-09 起 `schedule` 静默停摆（状态仍显示 `active`，手动 `workflow_dispatch` 正常），与 11-08 `sync-resukisu.yml` 解析失败及 11-09 18:07–19:20 UTC GitHub Actions 核心数据库迁移故障窗口完全重合。已将三个 `cron` 改为非整点奇数分钟并推送到默认分支，同时通过 GitHub API 执行 `disable` → `enable` 强制重新注册定时调度。
 
 **管理器版本锁定**：CI 只打包与内核模块**同一提交**的官方 manager APK，
 避免版本错配。伪装版仅在当次上游构建提供时附带。

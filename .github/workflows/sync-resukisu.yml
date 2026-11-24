@@ -10,7 +10,7 @@ name: sync-resukisu
 
 on:
   schedule:
-    - cron: '50 18 * * *'   # daily 02:50 UTC+8, after sync-android15-6.6-lts
+    - cron: '53 18 * * *'   # daily 02:53 UTC+8, after sync-android15-6.6-lts (off-peak minute; re-registered 2026-11-24)
   workflow_dispatch:
 
 permissions:
