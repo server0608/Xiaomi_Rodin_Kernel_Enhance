@@ -347,6 +347,8 @@ int __init cma_declare_contiguous_nid(phys_addr_t base,
 			ret = -EBUSY;
 			goto err;
 		}
+
+		accept_memory(base, base + size);
 	} else {
 		phys_addr_t addr = 0;
 
