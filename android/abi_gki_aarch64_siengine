@@ -912,7 +912,6 @@
   kobject_uevent_env
   kobj_sysfs_ops
   krealloc
-  kstrdup
   kstrndup
   kstrtobool_from_user
   kstrtoint

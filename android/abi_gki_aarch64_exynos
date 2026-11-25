@@ -418,7 +418,6 @@
   kobject_uevent_env
   kobj_sysfs_ops
   krealloc
-  kstrdup
   kstrndup
   kstrtobool
   kstrtoint

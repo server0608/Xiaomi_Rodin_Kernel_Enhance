@@ -206,7 +206,6 @@
   kobject_del
   kobject_uevent
   kobject_uevent_env
-  kstrdup
   kstrndup
   kstrtobool
   kstrtoint

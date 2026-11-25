@@ -229,7 +229,6 @@
   iput
   kill_anon_super
   kmalloc_large
-  kstrdup
   make_vfsgid
   make_vfsuid
   mount_nodev

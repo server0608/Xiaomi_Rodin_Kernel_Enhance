@@ -150,7 +150,6 @@
   kmem_cache_destroy
   kmem_cache_free
   krealloc
-  kstrdup
   kstrtouint
   kthread_create_on_node
   kthread_should_stop

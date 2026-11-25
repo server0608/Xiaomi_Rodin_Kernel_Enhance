@@ -631,7 +631,6 @@
   kobject_uevent_env
   krealloc
   ksoftirqd
-  kstrdup
   kstrndup
   kstrtobool
   kstrtobool_from_user

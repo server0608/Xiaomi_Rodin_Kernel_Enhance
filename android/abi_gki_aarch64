@@ -1,5 +1,6 @@
 [abi_symbol_list]
 # commonly used symbols
+  kstrdup
   module_layout
   __put_task_struct
   utf8_data_table

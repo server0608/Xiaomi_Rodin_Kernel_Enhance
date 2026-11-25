@@ -686,7 +686,6 @@
   kmem_cache_create
   kmem_cache_destroy
   kmem_cache_free
-  kstrdup
   memstart_addr
   preempt_schedule
   _raw_read_lock

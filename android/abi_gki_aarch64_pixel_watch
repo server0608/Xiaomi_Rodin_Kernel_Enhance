@@ -1156,7 +1156,6 @@
   ksize
   ksoftirqd
   kstat_irqs_usr
-  kstrdup
   kstrdup_const
   kstrdup_quotable_cmdline
   kstrndup

@@ -1270,7 +1270,6 @@
   kobject_put
   kobject_uevent_env
   krealloc
-  kstrdup
   kstrndup
   kstrtobool_from_user
   kstrtoint
