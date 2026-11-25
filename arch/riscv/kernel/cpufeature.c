@@ -126,23 +126,22 @@ static bool riscv_isa_extension_check(int id)
 #define __RISCV_ISA_EXT_SUPERSET(_name, _id, _sub_exts) \
 	_RISCV_ISA_EXT_DATA(_name, _id, _sub_exts, ARRAY_SIZE(_sub_exts))
 
+#define RISCV_ISA_EXT_ZKN	\
+	RISCV_ISA_EXT_ZBKB,	\
+	RISCV_ISA_EXT_ZBKC,	\
+	RISCV_ISA_EXT_ZBKX,	\
+	RISCV_ISA_EXT_ZKND,	\
+	RISCV_ISA_EXT_ZKNE,	\
+	RISCV_ISA_EXT_ZKNH
+
 static const unsigned int riscv_zk_bundled_exts[] = {
-	RISCV_ISA_EXT_ZBKB,
-	RISCV_ISA_EXT_ZBKC,
-	RISCV_ISA_EXT_ZBKX,
-	RISCV_ISA_EXT_ZKND,
-	RISCV_ISA_EXT_ZKNE,
+	RISCV_ISA_EXT_ZKN,
 	RISCV_ISA_EXT_ZKR,
-	RISCV_ISA_EXT_ZKT,
+	RISCV_ISA_EXT_ZKT
 };
 
 static const unsigned int riscv_zkn_bundled_exts[] = {
-	RISCV_ISA_EXT_ZBKB,
-	RISCV_ISA_EXT_ZBKC,
-	RISCV_ISA_EXT_ZBKX,
-	RISCV_ISA_EXT_ZKND,
-	RISCV_ISA_EXT_ZKNE,
-	RISCV_ISA_EXT_ZKNH,
+	RISCV_ISA_EXT_ZKN
 };
 
 static const unsigned int riscv_zks_bundled_exts[] = {
@@ -198,7 +197,8 @@ static const unsigned int riscv_zvbb_exts[] = {
 
 /*
  * The canonical order of ISA extension names in the ISA string is defined in
- * chapter 27 of the unprivileged specification.
+ * Chapter 27 of the RISC-V Instruction Set Manual Volume I Unprivileged ISA
+ * (Document Version 20191213).
  *
  * Ordinarily, for in-kernel data structures, this order is unimportant but
  * isa_ext_arr defines the order of the ISA string in /proc/cpuinfo.
