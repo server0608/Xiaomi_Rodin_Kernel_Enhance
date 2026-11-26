@@ -24,7 +24,10 @@ import sys
 START_ANCHOR = (
     "LOCAL_GIT_EXISTS := $(shell test -e $(KSU_SRC)/../.git && echo 1 || echo 0)"
 )
-END_ANCHOR = "KSU_VERSION := $(shell expr 30000 + $(KSU_LOCAL_VERSION) + 700)"
+END_ANCHORS = (
+    'KSU_BRANCH_NAME := $(shell cd $(KSU_SRC); $(GIT_BIN) branch --show-current 2>/dev/null || echo "unknown")',
+    "KSU_VERSION := $(shell expr 30000 + $(KSU_LOCAL_VERSION) + 700)",
+)
 VENDORED_MARKER = "Vendored as an in-tree copy of ReSukiSU"
 
 TEMPLATE = """\
@@ -85,10 +88,19 @@ def main() -> int:
 
     try:
         start = next(i for i, l in enumerate(lines) if l.strip() == START_ANCHOR)
-        end = next(
-            i for i, l in enumerate(lines[start:], start) if l.strip() == END_ANCHOR
-        )
+        end_candidates = [
+            i
+            for i, l in enumerate(lines[start:], start)
+            if l.strip() in END_ANCHORS
+        ]
+        if not end_candidates:
+            raise StopIteration
+        end = max(end_candidates)
     except StopIteration:
+        start = None
+
+    # Distinguish an already-pinned Kbuild from a fresh upstream Kbuild.
+    if start is not None and any(VENDORED_MARKER in l for l in lines[start : end + 1]):
         start = None
 
     if start is not None:
@@ -125,8 +137,17 @@ def main() -> int:
         lines[marker:end] = seg.split("\n")
         mode = "updated pinned values in vendored block"
 
+    # Guard against leaked upstream git queries after the pinned block.
+    result = "\n".join(lines)
+    after_version = result.split("KSU_VERSION := $(shell expr 30000 + $(KSU_LOCAL_VERSION) + 700)", 1)
+    if len(after_version) != 2 or "$(GIT_BIN)" in after_version[1]:
+        return fail(
+            "unexpected $(GIT_BIN) query remains after pinned KSU_VERSION block - "
+            "upstream Kbuild structure likely changed"
+        )
+
     with open(args.kbuild, "w", encoding="utf-8", newline="\n") as f:
-        f.write("\n".join(lines))
+        f.write(result)
     print(
         f"OK ({mode}): count={args.count} tag={args.tag} "
         f"sha={args.sha8} branch={args.branch}"

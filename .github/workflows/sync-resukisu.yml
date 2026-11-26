@@ -89,14 +89,12 @@ jobs:
           mkdir -p drivers/kernelsu/uapi
           cp "$RSU"/uapi/*.h drivers/kernelsu/uapi/
 
-          # 3) SUSFS kernel-side files: the tree carries a matched SUSFS v2.3.0
+          # 3) SUSFS kernel-side files: the tree carries a matched SUSFS v2.4.0
           #    set (fs/susfs.c + include/linux/susfs{,_def}.h) backing the
-          #    already-applied kernel-side hooks (fs/statfs.c, fs/proc/fd.c, ...).
-          #    The susfs4ksu -mod fork's fs/susfs.c does NOT implement
-          #    susfs_open_redirect_spoof_vfs_statfs/seq_show; overwriting with it
-          #    broke the build (run 34705303941, undefined symbols at link).
-          #    So the -mod files are only a bootstrap for a tree without SUSFS;
-          #    never overwrite SUSFS files that are already present.
+          #    already-applied kernel-side hooks (fs/statfs.c, fs/proc/fd.c,
+          #    security/selinux/*, ...). Never overwrite SUSFS files that are
+          #    already present; the -mod repo is only used for bootstrap and
+          #    custom 55/56 patch tracking.
           git clone --depth 1 -b "$SUSFS_BRANCH" "$SUSFS_REPO_URL" "$RUNNER_TEMP/susfs"
           SUSFS_SHA=$(git -C "$RUNNER_TEMP/susfs" rev-parse --short=8 HEAD)
           echo "susfs_sha=$SUSFS_SHA" >> "$GITHUB_OUTPUT"
@@ -111,9 +109,9 @@ jobs:
             echo "SUSFS kernel-side files present -> left untouched"
           fi
 
-          # 3b) Consistency gate: kernel-side call sites already in the tree must
-          #     be backed by fs/susfs.c. Abort (push nothing) on mismatch.
-          for sym in susfs_open_redirect_spoof_vfs_statfs susfs_open_redirect_spoof_seq_show; do
+          # 3b) Consistency gate: kernel-side SUSFS v2.4.0 call sites and
+          #     BakaSU hooks must be backed by fs/susfs.c. Abort on mismatch.
+          for sym in susfs_add_sus_type susfs_add_sus_avd_allowed_by_type susfs_open_redirect_spoof_do_sys_openat susfs_open_redirect_spoof_show_map_vma_srcu; do
             grep -q "$sym" fs/susfs.c || {
               echo "::error::fs/susfs.c does not define $sym - SUSFS kernel-side/version mismatch, aborting"
               exit 1
@@ -188,7 +186,7 @@ jobs:
             } >> drivers/kernelsu/.gitignore
           fi
 
-      - name: Adapt BakaSU helpers to the in-tree SUSFS interface
+      - name: Verify BakaSU/SUSFS v2.4.0 interface
         run: |
           python3 .github/scripts/ksu_susfs_compat.py
 
@@ -267,6 +265,12 @@ jobs:
             echo "- a SUSFS kernel-side file/version mismatch (the consistency gate aborts by design)"
             echo ""
           } > /tmp/issue-body.md
+          cat /tmp/issue-body.md >> "$GITHUB_STEP_SUMMARY"
+          HAS_ISSUES=$(gh api "repos/${{ github.repository }}" --jq '.has_issues' 2>/dev/null || echo "false")
+          if [ "$HAS_ISSUES" != "true" ]; then
+            echo "::warning::Repository issues are disabled (has_issues=$HAS_ISSUES); failure details recorded in step summary."
+            exit 0
+          fi
           EXISTING=$(gh issue list --state open --search "auto-sync ReSukiSU failed in:title" --json number --jq '.[0].number' || true)
           if [ -n "$EXISTING" ]; then
             echo "Issue #$EXISTING already open - not duplicating."

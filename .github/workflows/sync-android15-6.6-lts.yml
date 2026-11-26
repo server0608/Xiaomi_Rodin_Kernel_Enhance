@@ -116,6 +116,12 @@ jobs:
             echo ""
             echo "[Run log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
           } > /tmp/issue-body.md
+          cat /tmp/issue-body.md >> "$GITHUB_STEP_SUMMARY"
+          HAS_ISSUES=$(gh api "repos/${{ github.repository }}" --jq '.has_issues' 2>/dev/null || echo "false")
+          if [ "$HAS_ISSUES" != "true" ]; then
+            echo "::warning::Repository issues are disabled (has_issues=$HAS_ISSUES); conflict list recorded in step summary."
+            exit 0
+          fi
           EXISTING=$(gh issue list --state open --search "auto-sync android15-6.6-lts conflict in:title" --json number --jq '.[0].number' || true)
           if [ -n "$EXISTING" ]; then
             echo "Issue #$EXISTING already tracks this conflict - not duplicating."

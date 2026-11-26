@@ -123,7 +123,7 @@ jobs:
       - name: Validate BakaSU/SUSFS helper interface
         run: |
           python3 .github/scripts/ksu_susfs_compat.py
-          git diff --exit-code -- drivers/kernelsu/feature/selinux_hide.c
+          git diff --exit-code -- drivers/kernelsu/
 
       - name: Free disk space
         run: |
@@ -349,10 +349,8 @@ jobs:
 
             ### 本次兼容修复与验证范围 (Compatibility & Validation)
 
-            - 统一 BakaSU 与内核侧 SuSFS 的 SELinux 辅助函数声明、可见性和 8 参数调用，修复最终链接失败；保持 preinit runner 禁用。
-              Shared SELinux helper declarations and matching 8-argument calls fix the link failure; the preinit runner remains disabled.
-            - 用户已在 Rodin 测试包上确认正常开机、管理器识别及已安装模块运行正常；这不代表 SuSFS 隐藏效果或长期稳定性已经验证。
-              Owner-tested on Rodin: boot, manager recognition and installed modules. Hiding effectiveness and long-term stability remain unverified.
+            - 内核侧已升级至官方 SuSFS v2.4.0 接口（保留定制选择性隐藏与 `open_redirect` 支持）并与 BakaSU 同步；保持 preinit runner 禁用（`-DKSU_NO_PREINIT`）。
+              Kernel-side SuSFS v2.4.0 is synced with BakaSU while preserving selective hiding and `open_redirect`; the preinit runner remains disabled (`-DKSU_NO_PREINIT`).
             - 配套管理器 Version Code：`${{ env.RSU_MANAGER_VERSION }}`，只取内核固定提交的官方产物；伪装版仅在同次上游构建提供时附带（本次：`${{ env.HAS_SPOOFED_MANAGER }}`）。
               Manager artifacts must match the pinned kernel component commit; the spoofed variant is optional.
 
