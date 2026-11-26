@@ -31,7 +31,7 @@ Only differences introduced since that baseline are reported.
 Usage:
     scripts/abi-guard.py --write-baseline    # record the current build
     scripts/abi-guard.py                     # compare against the baseline
-    scripts/abi-guard.py --stg               # compare against the frozen snapshot
+    scripts/abi-guard.py --use-stg           # compare against the frozen snapshot
     scripts/abi-guard.py --json
     scripts/abi-guard.py --list-changed      # only show differences
 

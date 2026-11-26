@@ -30,7 +30,7 @@
   导致 CPU 利用率估算偏高/偏低，影响调频与选核。
 - **改动面**：`cpu_util()` 函数体内算术。
 - **ABI**：无。
-- **结论**：合入，本地 `2659273a6b5d`。
+- **结论**：合入，本地 `2659273a6b5d`。（2026-11-25 合并 AOSP 6.6.162 后已由上游 6.6.145 原生包含。）
 
 ### 补丁 2 — `f2d650618bc7` Allow decaying util_est when util_avg > CPU capa
 
@@ -45,7 +45,7 @@
 - **问题**：`update_tg_cfs_runnable()` 存在溢出，任务组 runnable 统计失真。
 - **改动面**：单函数。
 - **ABI**：无。
-- **结论**：合入，本地 `fc4e76ae3b8b`。
+- **结论**：合入，本地 `fc4e76ae3b8b`。（2026-11-25 合并 AOSP 6.6.162 后已由上游 6.6.157 原生包含。）
 
 ### 补丁 4 — `72bffbf57c52` Fix initial util_avg calculation
 
@@ -68,7 +68,7 @@
   导致容量不足的组被误选为 busiest。
 - **改动面**：把容量检查**前移**到 `group_type` 比较之前。
 - **ABI**：无。
-- **结论**：合入，本地 `34849521a42a`。已在实机验证。
+- **结论**：合入，本地 `34849521a42a`。已在实机验证。（2026-11-25 合并 AOSP 6.6.162 后已由上游 6.6.157 原生包含。）
 
 ### 补丁 7 — `58eeb2d79b54` Don't double balance_interval for migrate_misfit
 
@@ -121,7 +121,7 @@
   调度器会选中一个实际拥挤的组，同时真正空闲的组被浪费。
 - **改动面**：`for_each_cpu` → `for_each_cpu_and(..., p->cpus_ptr)`，一行。
 - **ABI**：无。
-- **结论**：合入。Android 上 HAL/cpuset 大量使用亲和性，收益可期。
+- **结论**：合入。Android 上 HAL/cpuset 大量使用亲和性，收益可期。（2026-11-25 合并 AOSP 6.6.162 后已由上游 6.6.145 原生包含。）
 
 ### 补丁 12 — `4423af84b297` optimize PLACE_LAG when se->vlag is zero
 
@@ -151,7 +151,7 @@
   再 `min_t(u32, N * mtu, 1 << 20)`。
 - **ABI**：无。
 - **相关性**：本项目硬锁 FQ，且用户态可配置 MTU，故必须修。
-- **结论**：合入（本地 `fd63409b669f`）。
+- **结论**：合入（本地 `fd63409b669f`）。（2026-11-25 合并 AOSP 6.6.162 后已由上游 6.6.160 原生包含。）
 
 ### 补丁 16 — `efe8f86c0916` mm/migrate: report RCU-tasks quiescent states
 
@@ -161,7 +161,7 @@
   导致 RCU 优雅期停滞数分钟，表现为整机卡死。
 - **改动面**：一处 `cond_resched()` → `cond_resched_tasks_rcu_qs()`。
 - **ABI**：无。
-- **结论**：合入（本地 `4757542649af`）。内存压力下压缩/迁移场景直接受益。
+- **结论**：合入（本地 `4757542649af`）。内存压力下压缩/迁移场景直接受益。（2026-11-25 合并 AOSP 6.6.162 后已由上游 6.6.157 原生包含。）
 
 
 ## 来自 6.18 的候选（2026-11-08 审计）
@@ -322,7 +322,7 @@ definition {
 
 | 方向 | 结论 |
 |---|---|
-| 整体 merge kernel.org 6.6.162 | 6876 个提交，会丢失 `ANDROID:` 补丁、破坏 vendor_hooks，且 AOSP 未推进。**否决** |
+| 直接整体 merge kernel.org stable（6.6.x） | 会丢失 `ANDROID:` 补丁、破坏 `vendor_hooks`。**否决**（LTS 升级必须走 AOSP `android15-6.6-lts`；6.6.162 已于 2026-11-25 通过合并 AOSP `8e5968bb7aca` 落地为 `bf641bbe26e9`） |
 | `sched/fair: Add L2 cache awareness`（SIS_CACHE） | 十余个补丁的系列，改动面大、回归风险高。暂缓 |
 | `schedutil` 频率参考 25% margin | 我们的树已包含 `e37617c8e53a`，与主线一致，无需改动 |
 | EEVDF `PLACE_LAG` / `RUN_TO_PARITY` 改为 sysctl | 涉及 `sched_feat` 与用户可见接口，收益不确定。暂缓 |

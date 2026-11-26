@@ -25,8 +25,8 @@ int same_magic(const char *amagic, const char *bmagic, bool has_crcs)
 本内核 `CONFIG_MODVERSIONS=y`，因此 `has_crcs` 为真，**vermagic 里的版本号段被跳过**，
 只比较 `SMP preempt mod_unload modversions aarch64`。
 
-结论：内核从 `6.6.144` 改成 `6.6.162`、或 release 串变成
-`6.6.144-403Forbidden-...-dirty`，都**不会**因此被拒绝加载模块。
+结论：内核从 `6.6.144` 升级到 `6.6.162`、或 release 串变成
+`6.6.162-403Forbidden-...-dirty`，都**不会**因此被拒绝加载模块。
 
 ## 2. 真正的风险：符号 CRC 不匹配
 
@@ -137,7 +137,7 @@ scripts/abi-guard.py --use-stg  # 对比 AOSP 冻结快照
 scripts/abi-guard.py --write-baseline   # 记录当前构建为新基线
 ```
 
-基线文件：`docs/abi-baseline.json`（由**实机验证通过**的构建生成）。
+基线文件：`docs/abi-baseline.json`（由已验证构建记录，或在合并新 AOSP `android15-6.6-lts` 后确认 `--use-stg` 零冻结结构体回退且 `abi_gki_aarch64_xiaomi` 符号表全部导出后刷新）。
 
 **真实案例**：`CONFIG_READ_ONLY_THP_FOR_FS=y` 看起来只是打开一个 THP 特性，
 实际会给 `struct address_space` 加 `atomic_t nr_thps`：

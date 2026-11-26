@@ -11,7 +11,7 @@
 | 设备 | 小米 Redmi Turbo 4 / POCO X7 Pro，代号 **rodin** |
 | SoC | MediaTek **MT6897** Dimensity 8400 Ultra，8× Cortex-A725（1+3+4） |
 | 系统 | HyperOS 3（Android 16），**GKI** 架构，GKI 世代 `android15-6.6` |
-| 内核 | Linux **6.6.144**，arm64，`-mcpu=cortex-a725` |
+| 内核 | Linux **6.6.162**，arm64，`-mcpu=cortex-a725` |
 | 分支 | `bsp-rodin-v-oss-bp`（主构建分支） |
 | 基线 | AOSP `android15-6.6-lts`（ACK） |
 
@@ -54,6 +54,7 @@
    在 HyperOS 上直接 bootloop。该宏定义在：
    - `drivers/kernelsu/tools/code_generation/code_generation.mk`
    - `drivers/kernelsu/tools/code_generation/preinit_runner/preinit_runner.mk`
+   - `fs/Makefile`（`CFLAGS_exec.o += -DKSU_NO_PREINIT`，覆盖 SUSFS v2.4.0 的 `fs/exec.c`）
    - `.github/workflows/sync-resukisu.yml`（同步后自动重新追加，勿删）
 
 6. **BBRv3 + FQ 硬锁不可移除。**
@@ -96,9 +97,9 @@ git diff --stat aosp/android15-6.6-lts -- kernel/sched/
 # 是否落后 AOSP（应为空）
 git log --oneline aosp/android15-6.6-lts --not HEAD -- kernel/sched/
 
-# 拉取 LTS 用于精选审计
-git fetch --no-tags stable refs/tags/v6.6.162:refs/tags/v6.6.162
-git log --oneline v6.6.144..v6.6.162 -- kernel/sched/
+# 拉取 LTS 用于精选审计（按需替换目标 tag）
+git fetch --no-tags stable refs/tags/v6.6.<new>:refs/tags/v6.6.<new>
+git log --oneline v6.6.162..v6.6.<new> -- kernel/sched/
 
 # 上游补丁原文
 curl -fsSL "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/patch/?id=<sha>"
@@ -123,12 +124,12 @@ curl -fsSL "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/p
 
 ## 6. 当前状态速查
 
-- 内核 6.6.144，与 AOSP `android15-6.6-lts` **完全同步**（零落后）。
-- 已合入 backport **17 个**：9 个早期提交 + 8 个 2026-11-08 实机验证通过
-  （调度 6 + 内存 2 + 网络 1 + 空闲 2，其中 2 个精选自 6.18）。
-- 全部通过 `scripts/abi-guard.py` 校验，10783 个 ABI 类型无变化。
-- 最新刷机包：`out/AnyKernel3-Rodin-6.6.144-...-840894-g8d7f2cae57bd-dirty-20261108-2326.zip`
-- 配套管理器：BakaSU 版本号 **35257**，内核模块 commit `516d3e87`。
+- 内核 **6.6.162**，与 AOSP `android15-6.6-lts`（`8e5968bb7aca`）**完全同步**（零落后，合并提交 `bf641bbe26e9`）。
+- 早期 17 个 backport 中 **6 个**已由 AOSP 6.6.162 原生吸收，现保留 **11 个**本地 backport（`fair.c` 9 + `idle.c` 1 + `cpufreq_schedutil.c` 1）以及 `mm/vmscan.c` MGLRU 硬锁。
+- 内核侧 SuSFS 已升级至官方 **v2.4.0**（`f98f082`，保留定制选择性 SELinux 隐藏补丁与 `open_redirect` 伪装）；BakaSU 已同步至 **`57b2db60`**（tag `v4.2.0-rc3`，版本号 **35285**，UAPI 6）。
+- ABI 校验：`scripts/abi-guard.py --use-stg` 对照冻结 `.stg` 3,264/3,267 一致（仅 3 项已知 `ZSTD_*` 固有差异）；`docs/abi-baseline.json` 已刷新至 6.6.162（10,815 项类型，`scripts/abi-guard.py` 退出码 0）。
+- 最新刷机包：`out/AnyKernel3-Rodin-6.6.162-403Forbidden-841169-gbf641bbe26e9-dirty-20261125-1155.zip`（**待实机刷入验证**）。
+- 配套管理器：BakaSU 版本号 **35285**，内核模块 commit `57b2db60`（官方 CI Run `45221593387`）。
 
 完整台账见 [`docs/PROJECT-STATE.md`](docs/PROJECT-STATE.md)。
 

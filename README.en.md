@@ -1,6 +1,6 @@
 # Xiaomi Rodin Kernel Enhance
 
-[![Kernel](https://img.shields.io/badge/kernel-6.6.144_LTS-blue)](https://kernel.org)
+[![Kernel](https://img.shields.io/badge/kernel-6.6.162_LTS-blue)](https://kernel.org)
 [![Base](https://img.shields.io/badge/base-MiCode%20bsp--rodin--v--oss-orange)](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bsp-rodin-v-oss)
 [![Root](https://img.shields.io/badge/Root-BakaSU-green)](https://github.com/Baka-SU/BakaSU)
 [![SuSFS](https://img.shields.io/badge/Hiding-SuSFS-green)](https://gitlab.com/simonpunk/susfs4ksu)
@@ -16,7 +16,7 @@ An enhanced Android kernel for Xiaomi **rodin** devices, built on top of Xiaomi'
 
 ### Root & Hiding
 - **BakaSU** (formerly ReSukiSU) built-in, integrated from [`Baka-SU/BakaSU` (`main`)](https://github.com/Baka-SU/BakaSU/tree/main)
-- **SuSFS** built-in, integrated from [`omajili-manbu/susfs4ksu` (`gki-android15-6.6-mod`)](https://github.com/omajili-manbu/susfs4ksu/tree/gki-android15-6.6-mod)
+- **SuSFS v2.4.0** built-in, based on official [`simonpunk/susfs4ksu` (`gki-android15-6.6`)](https://gitlab.com/simonpunk/susfs4ksu/-/tree/gki-android15-6.6) with selective SELinux hiding patches and `open_redirect` spoofing layered from [`omajili-manbu/susfs4ksu` (`gki-android15-6.6-mod`)](https://github.com/omajili-manbu/susfs4ksu/tree/gki-android15-6.6-mod)
 - Able to hide suspicious SELinux contexts/rules from apps, tied to the SuSFS AVC log spoofing switch
 
 ### Brick Protection
@@ -45,46 +45,45 @@ The tuning philosophy is **balancing performance and battery life** — all gain
 
 ## Current Status & Recent Updates
 
-- **Kernel Version**: Linux 6.6.144 (Android 15 GKI)
+- **Kernel Version**: Linux 6.6.162 (Android 15 GKI)
 - **Target Platform**: Xiaomi Rodin / MT6897 (Dimensity 8400 Ultra)
-- **Source Baseline**: `c57c72905804` (ACK merge point `67fa9c004012`)
-- **Root Component**: BakaSU `516d3e87`, Version Code **35257**, UAPI **6**; use the [official manager from the same commit](https://github.com/Baka-SU/BakaSU/actions/runs/41207077584).
-- **Compatibility Fix & Validation**: Shared SELinux helper declarations, visibility and matching 8-argument calls resolve the BakaSU/SUSFS final-link errors; the preinit runner remains disabled. The full local build passed, and the owner confirmed Rodin boot, manager recognition and installed modules. SuSFS hiding effectiveness and long-term stability remain unverified.
-- **Network Stack Optimization**: Kernel-level hard-lock for **BBRv3** TCP congestion control and **FQ** packet scheduler, preventing Android userspace overrides and ensuring system-wide activation
-- **ABI Protection**: `scripts/abi-guard.py` compares the size of all 10783 frozen ABI types after every build and rejects any struct layout change. Prebuilt vendor modules are compiled against that layout, and the kernel does not refuse a module whose symbol CRCs mismatch, so this check is mandatory before flashing.
+- **AOSP Baseline**: `android15-6.6-lts` @ `8e5968bb7aca` (merge commit `bf641bbe26e9`, resolving the single conflict in `drivers/ufs/core/ufs-mcq.c` and updating `net/ipv4/tcp_bbr3_compat.h` for the 3-argument `__tcp_send_ack()`)
+- **Root Component**: BakaSU `57b2db60` (tag `v4.2.0-rc3`), Version Code **35285**, UAPI **6**; use the [official manager from the same commit](https://github.com/Baka-SU/BakaSU/actions/runs/45221593387).
+- **SuSFS Upgrade & Compatibility**: Kernel-side SuSFS upgraded to official **v2.4.0** (`f98f082`), natively matching BakaSU `57b2db60`'s split `selinux_hide` module with `CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER=y` enabled; selective SELinux hiding patches and `open_redirect` spoofing are preserved, and `preinit/runner.elf` remains disabled (`-DKSU_NO_PREINIT`, including `fs/exec.c`).
+- **Validation Status**: Clean local build (`6.6.162`), ARM64 / LZ4 Legacy magic verification, frozen GKI `.stg` check (3,264/3,267 matched, only the 3 pre-existing `ZSTD_*` divergences; 641/641 `abi_gki_aarch64_xiaomi` symbols exported), and the refreshed 10,815-type baseline check all pass. **Physical device testing for this `6.6.162` + SuSFS v2.4.0 + BakaSU `57b2db60` combination is still pending** (the previous `6.6.144` release was verified on Rodin for boot, manager recognition, and installed modules).
+- **Network Stack & MGLRU Hard-Locks**: Kernel-level hard-locks keep **BBRv3** TCP congestion control, **FQ** packet scheduler, and **MGLRU** core reclaim enabled against Android/MIUI userspace `init.rc` overrides.
+- **ABI Protection**: `scripts/abi-guard.py` compares the size of all 10,815 recorded kernel types in `docs/abi-baseline.json` (and supports `--use-stg` against the frozen GKI `.stg` snapshot) after every build to catch struct layout drift before flashing. Prebuilt vendor modules are compiled against the frozen GKI layout, and the kernel does not refuse mismatched symbol CRCs under `CONFIG_MODULE_FORCE_LOAD=y`.
 
 ### Included Upstream Backports
 
-The following 17 backports are included. Validation is documented in the
-respective build and device-test records; a successful build does not imply an
-independent A/B test.
+Of the 17 backports originally carried on top of 6.6.144, **6** are now natively included via the AOSP `android15-6.6-lts` (6.6.162) merge and **11** remain as local backports. Validation is documented in the respective build and device-test records; a successful build does not imply an independent A/B test.
 
-**Scheduling (`sched/fair`)**
-- `sched/fair: Fix cpu_util runnable_avg arithmetic`
+**Active Local Backports (11)**
+
+*Scheduling (`sched/fair`)*
 - `sched/fair: Allow decaying util_est when util_avg > CPU capa`
-- `sched/fair: Fix overflow in update_tg_cfs_runnable()`
 - `sched/fair: Fix initial util_avg calculation`
 - `sched/fair: Don't trigger active lb if src_rq->curr is not on_rq`
-- `sched/fair: Check CPU capacity before comparing group types during load balance`
 - `sched/fair: Don't double balance_interval for migrate_misfit`
 - `sched/fair: Do strict inequality check for busiest misfit task group`
 - `sched/fair: Filter false overloaded_group case for EAS`
-- `sched/fair: Only update stats for allowed CPUs when looking for dst group`
 - `sched/fair: optimize the PLACE_LAG when se->vlag is zero`
 - `sched/fair: Update overutilized detection`
 - `sched/balance: Skip unnecessary updates to idle load balancer's flags`
 
-**Scheduling / idle**
+*Scheduling / idle*
 - `sched: idle: Optimize the generic idle loop by removing needless memory barrier`
 
-**Frequency scaling** (inert on this device: MTK's `cpufreq_sugov_ext` module is the active governor)
+*Frequency scaling* (inert on this device: MTK's `cpufreq_sugov_ext` module is the active governor)
 - `cpufreq/sched: Explicitly synchronize limits_changed flag handling`
 
-**Memory**
-- `mm/migrate: report RCU-tasks quiescent states in migrate_pages_batch()`
-
-**Networking**
-- `net/sched: fq: add overflow bounds to quantum and initial quantum`
+**Now Included Upstream in AOSP 6.6.162 (6)**
+- `sched/fair: Fix cpu_util runnable_avg arithmetic` (6.6.145)
+- `sched/fair: Only update stats for allowed CPUs when looking for dst group` (6.6.145)
+- `sched/fair: Fix overflow in update_tg_cfs_runnable()` (6.6.157)
+- `sched/fair: Check CPU capacity before comparing group types during load balance` (6.6.157)
+- `mm/migrate: report RCU-tasks quiescent states in migrate_pages_batch()` (6.6.157)
+- `net/sched: fq: add overflow bounds to quantum and initial quantum` (6.6.160)
 
 Every candidate is audited individually, kept to a minimal diff, built locally,
 checked against the frozen GKI ABI, and only then verified on hardware. A patch
@@ -119,7 +118,7 @@ its benefit, because prebuilt vendor modules are compiled against that layout.
 
 - [omajili-manbu/Xiaomi_Rodin_Kernel_Enhance](https://github.com/omajili-manbu/Xiaomi_Rodin_Kernel_Enhance) — original repository and enhancement work
 - [MiCode/Xiaomi_Kernel_OpenSource](https://github.com/MiCode/Xiaomi_Kernel_OpenSource) — official rodin kernel source (`bsp-rodin-v-oss`)
-- [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU) / [SukiSU-Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra) / [KernelSU](https://github.com/tiann/KernelSU) — root solution
+- [BakaSU](https://github.com/Baka-SU/BakaSU) / [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU) / [SukiSU-Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra) / [KernelSU](https://github.com/tiann/KernelSU) — root solution
 - [SusFS](https://gitlab.com/simonpunk/susfs4ksu) — root hiding
 - [Baseband-guard](https://github.com/vc-teahouse/Baseband-guard) — brick protection
 - [Linux-Patches](https://gitlab.com/xanmod/linux-patches) — BBRv3 patches
