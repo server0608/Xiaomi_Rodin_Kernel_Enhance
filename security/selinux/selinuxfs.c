@@ -45,14 +45,13 @@
 #include "ima.h"
 
 #ifdef CONFIG_KSU_SUSFS
-#include <linux/ksu_susfs_compat.h>
-extern struct selinux_policy *backup_sepolicy;
 extern struct page *fake_status;
 extern struct static_key_false fake_status_initialize_key;
 extern bool ksu_selinux_hide_running __read_mostly;
 extern struct static_key_false susfs_is_avc_log_spoofing_enabled;
-extern bool ksu_selinux_hide_enabled __read_mostly;
 extern void initialize_fake_status(void);
+extern int susfs_security_context_str_to_sid(const char *scontext, u32 *sid, gfp_t gfp);
+extern void susfs_security_compute_av_user(u32 ssid, u32 tsid, u16 tclass, struct av_decision *avd);
 #endif // #ifdef CONFIG_KSU_SUSFS
 
 enum sel_inos {
@@ -230,36 +229,30 @@ static int sel_open_handle_status(struct inode *inode, struct file *filp)
 {
 	struct page    *status = selinux_kernel_status_page();
 
-	if (!status)
-		return -ENOMEM;
-
-	filp->private_data = status;
-
-	return 0;
-}
-
 #ifdef CONFIG_KSU_SUSFS
-static int my_sel_open_handle_status(struct inode *inode, struct file *filp)
-{
-	void *data;
-	int ret;
-
-	if (likely(current_uid().val >= 10000 && ksu_selinux_hide_enabled)) {
-		mutex_lock(&selinux_state.status_lock);
-		data = fake_status;
-		mutex_unlock(&selinux_state.status_lock);
+	if (likely(current_uid().val >= 10000 && ksu_selinux_hide_running)) {
+		void *data = fake_status;
 		if (data) {
 			filp->private_data = data;
 			return 0;
 		}
 	}
-
-	ret = sel_open_handle_status(inode, filp);
-	if (static_branch_unlikely(&fake_status_initialize_key) && !ret && !fake_status)
-		initialize_fake_status();
-	return ret;
-}
 #endif // #ifdef CONFIG_KSU_SUSFS
+
+	if (!status)
+		return -ENOMEM;
+
+	filp->private_data = status;
+
+#ifdef CONFIG_KSU_SUSFS
+	if (static_branch_unlikely(&fake_status_initialize_key)) {
+		if (!fake_status)
+			initialize_fake_status();
+	}
+#endif // #ifdef CONFIG_KSU_SUSFS
+
+	return 0;
+}
 
 static ssize_t sel_read_handle_status(struct file *filp, char __user *buf,
 				      size_t count, loff_t *ppos)
@@ -296,11 +289,7 @@ static int sel_mmap_handle_status(struct file *filp,
 }
 
 static const struct file_operations sel_handle_status_ops = {
-#ifdef CONFIG_KSU_SUSFS
-	.open		= my_sel_open_handle_status,
-#else
 	.open		= sel_open_handle_status,
-#endif // #ifdef CONFIG_KSU_SUSFS
 	.read		= sel_read_handle_status,
 	.mmap		= sel_mmap_handle_status,
 	.llseek		= generic_file_llseek,
@@ -674,28 +663,26 @@ out:
 #ifdef CONFIG_KSU_SUSFS
 /*
  * PRECISION_SELINUX_HOOK_HIDELIST
- * selinux-hook: types that must look non-existent to ordinary apps.
+ * selinux-hook: additional types that must look non-existent to ordinary apps
+ * on top of SUSFS v2.4.0 dynamic sus_type hiding.
  */
 static bool susfs_hide_suspicious_ctx(const char *ctx)
 {
-        return ctx && (strstr(ctx, ":su:") || strstr(ctx, ":ssu:") ||
-                       strstr(ctx, ":ksu_file:") ||
-                       strstr(ctx, ":lsposed_file:") ||
-                       strstr(ctx, ":adb_data_file:") ||
-                       strstr(ctx, ":dsp_bypass") ||
-                       strstr(ctx, ":adbroot") || strstr(ctx, ":addr:") ||
-                       strstr(ctx, ":fsck_untrusted:"));
+	return ctx && (strstr(ctx, ":su:") || strstr(ctx, ":ssu:") ||
+		       strstr(ctx, ":ksu_file:") ||
+		       strstr(ctx, ":lsposed_file:") ||
+		       strstr(ctx, ":adb_data_file:") ||
+		       strstr(ctx, ":dsp_bypass") ||
+		       strstr(ctx, ":adbroot") || strstr(ctx, ":addr:") ||
+		       strstr(ctx, ":fsck_untrusted:"));
 }
 
-static ssize_t my_write_context(struct file *file, char *buf, size_t size)
+extern int susfs_security_context_to_sid(const char *scontext, u32 scontext_len, u32 *sid, gfp_t gfp);
+static ssize_t susfs_sel_write_context(struct file *file, char *buf, size_t size)
 {
 	char *canon = NULL;
 	u32 sid, len;
 	ssize_t length;
-
-	// apply to all app uids
-	if (likely(current_uid().val < 10000 || !ksu_selinux_hide_running))
-		return sel_write_context(file, buf, size);
 
 	length = avc_has_perm(current_sid(), SECINITSID_SECURITY,
 			      SECCLASS_SECURITY, SECURITY__CHECK_CONTEXT, NULL);
@@ -707,12 +694,11 @@ static ssize_t my_write_context(struct file *file, char *buf, size_t size)
 		goto out;
 	}
 
-	length = security_context_to_sid_with_policy(backup_sepolicy, buf, size,
-			&sid, SECSID_NULL, GFP_KERNEL, NULL, NULL);
+	length = susfs_security_context_to_sid(buf, size, &sid, GFP_KERNEL);
 	if (length)
 		goto out;
 
-	length = security_sid_to_context_with_policy(backup_sepolicy, sid, &canon, &len);
+	length = security_sid_to_context(sid, &canon, &len);
 	if (length)
 		goto out;
 
@@ -728,6 +714,14 @@ static ssize_t my_write_context(struct file *file, char *buf, size_t size)
 out:
 	kfree(canon);
 	return length;
+}
+
+static ssize_t handle_sel_write_context(struct file *file, char *buf, size_t size) {
+	if (likely(current_uid().val >= 10000 &&
+		   (ksu_selinux_hide_running ||
+		    static_branch_unlikely(&susfs_is_avc_log_spoofing_enabled))))
+		return susfs_sel_write_context(file, buf, size);
+	return sel_write_context(file, buf, size);
 }
 #endif // #ifdef CONFIG_KSU_SUSFS
 
@@ -852,6 +846,7 @@ static ssize_t sel_write_validatetrans(struct file *file,
 	if (rc)
 		goto out;
 
+#ifdef CONFIG_KSU_SUSFS
 	if (current_uid().val >= 10000 &&
 	    (susfs_hide_suspicious_ctx(oldcon) ||
 	     susfs_hide_suspicious_ctx(newcon) ||
@@ -859,6 +854,7 @@ static ssize_t sel_write_validatetrans(struct file *file,
 		rc = -EINVAL;
 		goto out;
 	}
+#endif // #ifdef CONFIG_KSU_SUSFS
 
 	rc = security_validate_transition_user(osid, nsid, tsid, tclass);
 	if (!rc)
@@ -880,18 +876,17 @@ static const struct file_operations sel_transition_ops = {
  * Remaining nodes use transaction based IO methods like nfsd/nfsctl.c
  */
 static ssize_t sel_write_access(struct file *file, char *buf, size_t size);
+#ifdef CONFIG_KSU_SUSFS
+static ssize_t handle_sel_write_access(struct file *file, char *buf, size_t size);
+#endif // #ifdef CONFIG_KSU_SUSFS
 static ssize_t sel_write_create(struct file *file, char *buf, size_t size);
 static ssize_t sel_write_relabel(struct file *file, char *buf, size_t size);
 static ssize_t sel_write_user(struct file *file, char *buf, size_t size);
 static ssize_t sel_write_member(struct file *file, char *buf, size_t size);
-#ifdef CONFIG_KSU_SUSFS
-static ssize_t my_write_access(struct file *file, char *buf, size_t size);
-static ssize_t my_write_context(struct file *file, char *buf, size_t size);
-#endif // #ifdef CONFIG_KSU_SUSFS
 
 static ssize_t (*const write_op[])(struct file *, char *, size_t) = {
 #ifdef CONFIG_KSU_SUSFS
-	[SEL_ACCESS] = my_write_access,
+	[SEL_ACCESS] = handle_sel_write_access,
 #else
 	[SEL_ACCESS] = sel_write_access,
 #endif // #ifdef CONFIG_KSU_SUSFS
@@ -900,7 +895,7 @@ static ssize_t (*const write_op[])(struct file *, char *, size_t) = {
 	[SEL_USER] = sel_write_user,
 	[SEL_MEMBER] = sel_write_member,
 #ifdef CONFIG_KSU_SUSFS
-	[SEL_CONTEXT] = my_write_context,
+	[SEL_CONTEXT] = handle_sel_write_context,
 #else
 	[SEL_CONTEXT] = sel_write_context,
 #endif // #ifdef CONFIG_KSU_SUSFS
@@ -923,7 +918,7 @@ static ssize_t selinux_transaction_write(struct file *file, const char __user *b
 	if (ino != SEL_ACCESS && current_uid().val >= 10000 &&
 	    susfs_hide_suspicious_ctx(data))
 		return -EINVAL;
-#endif
+#endif // #ifdef CONFIG_KSU_SUSFS
 
 	rv = write_op[ino](file, data, size);
 	if (rv > 0) {
@@ -995,106 +990,94 @@ out:
 }
 
 #ifdef CONFIG_KSU_SUSFS
-static ssize_t my_write_access(struct file *file, char *buf, size_t size)
+static ssize_t susfs_sel_write_access(struct file *file, char *buf, size_t size)
 {
-        char *scon = NULL, *tcon = NULL, *tctx = NULL, *sctx = NULL;
-        u32 ssid, tsid, tctxlen, sctxlen, system_server_sid = 0;
-        int src_hidden, tgt_hidden;
-        u16 tclass;
-        struct av_decision avd;
-        ssize_t length;
-        int hide;
+	char *scon = NULL, *tcon = NULL, *sctx = NULL, *tctx = NULL;
+	u32 ssid, tsid, sctxlen, tctxlen, system_server_sid = 0;
+	int src_hidden, tgt_hidden;
+	u16 tclass;
+	struct av_decision avd;
+	ssize_t length;
 
-        /*
-         * PRECISION_SELINUX_HOOK_ACCESS
-         * selinux-hook (minimal, precision): only strip the suspicious items an
-         * ordinary app must not see from the compute_av answer it reads on
-         * /sys/fs/selinux/access:
-         *   - target types su / ssu / ksu_file / lsposed_file / adbroot /
-         *     addr / fsck_untrusted / adb_data_file / dsp_bypass
-         *   - capability-class permission sys_admin (capability bit 21)
-         *   - process-class execmem (bit 25) when source is system_server
-         * Everything else keeps the real policy, and non-app / hidden-off callers
-         * are untouched: no EACCES, no impact on normal runtime (no boot impact).
-         */
-        hide = current_uid().val >= 10000 &&
-               (static_branch_unlikely(&susfs_is_avc_log_spoofing_enabled) ||
-                ksu_selinux_hide_running);
-        if (!hide)
-                return sel_write_access(file, buf, size);
+	length = avc_has_perm(current_sid(), SECINITSID_SECURITY,
+			      SECCLASS_SECURITY, SECURITY__COMPUTE_AV, NULL);
+	if (length)
+		goto out;
 
-        length = avc_has_perm(current_sid(), SECINITSID_SECURITY,
-                              SECCLASS_SECURITY, SECURITY__COMPUTE_AV, NULL);
-        if (length)
-                goto out;
+	length = -ENOMEM;
+	scon = kzalloc(size + 1, GFP_KERNEL);
+	if (!scon)
+		goto out;
 
-        length = -ENOMEM;
-        scon = kzalloc(size + 1, GFP_KERNEL);
-        if (!scon)
-                goto out;
+	length = -ENOMEM;
+	tcon = kzalloc(size + 1, GFP_KERNEL);
+	if (!tcon)
+		goto out;
 
-        length = -ENOMEM;
-        tcon = kzalloc(size + 1, GFP_KERNEL);
-        if (!tcon)
-                goto out;
+	length = -EINVAL;
+	if (sscanf(buf, "%s %s %hu", scon, tcon, &tclass) != 3)
+		goto out;
 
-        length = -EINVAL;
-        if (sscanf(buf, "%s %s %hu", scon, tcon, &tclass) != 3)
-                goto out;
+	length = susfs_security_context_str_to_sid(scon, &ssid, GFP_KERNEL);
+	if (length)
+		goto out;
 
-        length = security_context_str_to_sid(scon, &ssid, GFP_KERNEL);
-        if (length)
-                goto out;
+	length = susfs_security_context_str_to_sid(tcon, &tsid, GFP_KERNEL);
+	if (length)
+		goto out;
 
-        length = security_context_str_to_sid(tcon, &tsid, GFP_KERNEL);
-        if (length)
-                goto out;
+	/*
+	 * PRECISION_SELINUX_HOOK_ACCESS
+	 * Layer extra static type/cap/execmem hiding on top of SUSFS v2.4.0
+	 * dynamic sus_type / sus_avd_allowed filtering.
+	 */
+	src_hidden = tgt_hidden = 0;
+	if (security_sid_to_context(ssid, &sctx, &sctxlen) == 0 && sctx) {
+		if (!strncmp(sctx, "u:r:system_server:s0",
+			     strlen("u:r:system_server:s0")))
+			system_server_sid = ssid;
+		else
+			src_hidden = susfs_hide_suspicious_ctx(sctx);
+		kfree(sctx);
+	}
+	if (!src_hidden &&
+	    security_sid_to_context(tsid, &tctx, &tctxlen) == 0 && tctx) {
+		tgt_hidden = susfs_hide_suspicious_ctx(tctx);
+		kfree(tctx);
+	}
+	if (src_hidden || tgt_hidden) {
+		length = -EINVAL;
+		goto out;
+	}
 
-        /*
-         * hidden types must look non-existent: a query naming one in its
-         * source or target context gets -EINVAL, byte-for-byte what
-         * sel_write_access returns for an unknown context.
-         */
-        src_hidden = tgt_hidden = 0;
-        if (security_sid_to_context(ssid, &sctx, &sctxlen) == 0 && sctx) {
-                if (!strncmp(sctx, "u:r:system_server:s0",
-                             strlen("u:r:system_server:s0")))
-                        system_server_sid = ssid;
-                else
-                        src_hidden = susfs_hide_suspicious_ctx(sctx);
-                kfree(sctx);
-        }
-        sctx = NULL;
-        if (!src_hidden &&
-            security_sid_to_context(tsid, &tctx, &tctxlen) == 0 && tctx) {
-                tgt_hidden = susfs_hide_suspicious_ctx(tctx);
-                kfree(tctx);
-                tctx = NULL;
-        }
-        if (src_hidden || tgt_hidden) {
-                length = -EINVAL;
-                goto out;
-        }
+	susfs_security_compute_av_user(ssid, tsid, tclass, &avd);
 
-        security_compute_av_user(ssid, tsid, tclass, &avd);
+	/* strip capability sys_admin (bit 21) as well */
+	if (tclass == SECCLASS_CAPABILITY || tclass == SECCLASS_CAPABILITY2)
+		avd.allowed &= ~(1U << 21);
 
-        /* strip capability sys_admin (bit 21) as well */
-        if (tclass == SECCLASS_CAPABILITY || tclass == SECCLASS_CAPABILITY2)
-                avd.allowed &= ~(1U << 21);
+	/* strip process execmem (bit 25) when source is system_server */
+	if (tclass == SECCLASS_PROCESS && ssid == system_server_sid)
+		avd.allowed &= ~(1U << 25);
 
-        /* strip process execmem (bit 25) when source is system_server */
-        if (tclass == SECCLASS_PROCESS && ssid == system_server_sid)
-                avd.allowed &= ~(1U << 25);
-
-        length = scnprintf(buf, SIMPLE_TRANSACTION_LIMIT,
-                          "%x %x %x %x %u %x",
-                          avd.allowed, 0xffffffff,
-                          avd.auditallow, avd.auditdeny,
-                          avd.seqno, avd.flags);
+	length = scnprintf(buf, SIMPLE_TRANSACTION_LIMIT,
+			  "%x %x %x %x %u %x",
+			  avd.allowed, 0xffffffff,
+			  avd.auditallow, avd.auditdeny,
+			  avd.seqno, avd.flags);
 out:
-        kfree(tcon);
-        kfree(scon);
-        return length;
+	kfree(tcon);
+	kfree(scon);
+	return length;
+}
+
+static ssize_t handle_sel_write_access(struct file *file, char *buf, size_t size)
+{
+	if (likely(current_uid().val >= 10000 &&
+		   (ksu_selinux_hide_running ||
+		    static_branch_unlikely(&susfs_is_avc_log_spoofing_enabled))))
+		return susfs_sel_write_access(file, buf, size);
+	return sel_write_access(file, buf, size);
 }
 #endif // #ifdef CONFIG_KSU_SUSFS
 
