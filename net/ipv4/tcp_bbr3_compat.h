@@ -352,7 +352,7 @@ static inline void bbr_ece_ack_update(struct sock *sk, enum tcp_ca_event evt,
 #ifdef HAVE___TCP_SEND_ACK
 		if (inet_csk(sk)->icsk_ack.pending & ICSK_ACK_TIMER) {
 			bbr_ece_ack_cwr(sk, *ce_state);
-			__tcp_send_ack(sk, *prior_rcv_nxt);
+			__tcp_send_ack(sk, *prior_rcv_nxt, 0);
 		}
 #endif
 		inet_csk(sk)->icsk_ack.pending |= ICSK_ACK_NOW;
