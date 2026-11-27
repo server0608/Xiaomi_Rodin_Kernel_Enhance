@@ -47,10 +47,11 @@
 
 - **内核版本**：Linux 6.6.144 (Android 15 GKI)
 - **目标平台**：Xiaomi Rodin / MT6897 (Dimensity 8400 Ultra)
-- **源码基线**：`c57c72905804`（上游 ACK 合并点 `67fa9c004012`）
-- **Root 组件**：BakaSU `516d3e87`，Version Code **35257**，UAPI **6**；请使用[同提交官方管理器](https://github.com/Baka-SU/BakaSU/actions/runs/41207077584)。
-- **兼容修复与验证**：统一 BakaSU/SuSFS 的 SELinux 辅助函数声明、可见性及 8 参数调用，修复最终链接错误；保持 preinit runner 禁用。本地完整构建通过，用户已确认 Rodin 正常开机、管理器识别和已安装模块运行正常；SuSFS 隐藏效果及长期稳定性尚未验证。
+- **源码基线**：稳定基线 `7a6714fea2d9`（上游 ACK 合并点 `1c39bb5f635a`，与实机稳跑 36h+ 的 `fc96916230e9` 内核源码一致）
+- **Root 组件**：BakaSU `7b65bde0`，Version Code **35262**，UAPI **6**，搭配 SuSFS `v2.3.0`；请使用同提交官方管理器。
+- **回归隔离说明（2026-11-27）**：`6.6.162/6.6.163 + SuSFS v2.4.0 + BakaSU 57b2db60` 升级批次在实机启动相机（20–40 秒）及待机场景复现整机死机/看门狗复位，已移至实验分支 [`exp/6.6.162-susfs24`](https://github.com/server0608/Xiaomi_Rodin_Kernel_Enhance/tree/exp/6.6.162-susfs24) 隔离。主分支 `bsp-rodin-v-oss-bp` 已回退至稳定 **6.6.144** 并暂停每日定时自动同步/构建，详见 [`docs/PROJECT-STATE.md`](docs/PROJECT-STATE.md) §9.7。
 - **网络栈优化**：内核层硬锁定 **BBRv3** 拥塞控制与 **FQ** 队列调度，拦截 Android userspace 脚本覆写，全系统开机自启生效
+- **内存回收保护**：内核层硬锁定 **MGLRU** 核心开关，避免系统 `init.rc` 误关导致空闲内存持续流失
 - **ABI 保护机制**：`scripts/abi-guard.py` 在每次构建后比对 10783 个冻结 ABI 类型的大小，任何结构体布局变化立即拦截。闭源厂商模块按固定布局编译，内核又不会拒绝 CRC 不匹配的模块，所以这项检查是刷机前的必需步骤。
 
 ### 已合入的上游 Backport
@@ -99,7 +100,8 @@
 
 ## 分支
 
-- [`bsp-rodin-v-oss-bp`](https://github.com/server0608/Xiaomi_Rodin_Kernel_Enhance/tree/bsp-rodin-v-oss-bp) — 主构建分支，在小米官方 rodin 源码基础上叠加反向移植与增强
+- [`bsp-rodin-v-oss-bp`](https://github.com/server0608/Xiaomi_Rodin_Kernel_Enhance/tree/bsp-rodin-v-oss-bp) — 主稳定分支（当前固定在实机验证稳定的 **6.6.144 + BakaSU `7b65bde0` + SuSFS `v2.3.0`**）
+- [`exp/6.6.162-susfs24`](https://github.com/server0608/Xiaomi_Rodin_Kernel_Enhance/tree/exp/6.6.162-susfs24) — 实验/隔离分支（保存 `6.6.162/6.6.163 + SuSFS v2.4.0` 升级记录，存在已知死机回归，**请勿用于日用**）
 
 ## 计划
 

@@ -47,10 +47,11 @@ The tuning philosophy is **balancing performance and battery life** — all gain
 
 - **Kernel Version**: Linux 6.6.144 (Android 15 GKI)
 - **Target Platform**: Xiaomi Rodin / MT6897 (Dimensity 8400 Ultra)
-- **Source Baseline**: `c57c72905804` (ACK merge point `67fa9c004012`)
-- **Root Component**: BakaSU `516d3e87`, Version Code **35257**, UAPI **6**; use the [official manager from the same commit](https://github.com/Baka-SU/BakaSU/actions/runs/41207077584).
-- **Compatibility Fix & Validation**: Shared SELinux helper declarations, visibility and matching 8-argument calls resolve the BakaSU/SUSFS final-link errors; the preinit runner remains disabled. The full local build passed, and the owner confirmed Rodin boot, manager recognition and installed modules. SuSFS hiding effectiveness and long-term stability remain unverified.
+- **Source Baseline**: Stable baseline `7a6714fea2d9` (ACK merge point `1c39bb5f635a`; kernel tree matches `fc96916230e9`, verified 36h+ stable on hardware)
+- **Root Component**: BakaSU `7b65bde0`, Version Code **35262**, UAPI **6**, paired with SuSFS `v2.3.0`; use the official manager from the matching commit.
+- **Regression Quarantine (2026-11-27)**: The `6.6.162/6.6.163 + SuSFS v2.4.0 + BakaSU 57b2db60` upgrade batch reproduced full-core hard lockups / watchdog resets on Camera launch (20–40s) and occasionally during standby, and has been quarantined to [`exp/6.6.162-susfs24`](https://github.com/server0608/Xiaomi_Rodin_Kernel_Enhance/tree/exp/6.6.162-susfs24). `bsp-rodin-v-oss-bp` has been rolled back to verified stable **6.6.144** with nightly scheduled sync/build paused; see [`docs/PROJECT-STATE.md`](docs/PROJECT-STATE.md) §9.7.
 - **Network Stack Optimization**: Kernel-level hard-lock for **BBRv3** TCP congestion control and **FQ** packet scheduler, preventing Android userspace overrides and ensuring system-wide activation
+- **Memory Reclaim Protection**: Kernel-level hard-lock for **MGLRU** core reclaim to prevent userspace `init.rc` scripts from disabling it
 - **ABI Protection**: `scripts/abi-guard.py` compares the size of all 10783 frozen ABI types after every build and rejects any struct layout change. Prebuilt vendor modules are compiled against that layout, and the kernel does not refuse a module whose symbol CRCs mismatch, so this check is mandatory before flashing.
 
 ### Included Upstream Backports
@@ -102,7 +103,8 @@ its benefit, because prebuilt vendor modules are compiled against that layout.
 
 ## Branches
 
-- [`bsp-rodin-v-oss-bp`](https://github.com/server0608/Xiaomi_Rodin_Kernel_Enhance/tree/bsp-rodin-v-oss-bp) — main build branch, based on Xiaomi's official rodin source with additional backports and enhancements
+- [`bsp-rodin-v-oss-bp`](https://github.com/server0608/Xiaomi_Rodin_Kernel_Enhance/tree/bsp-rodin-v-oss-bp) — main stable branch (currently pinned to hardware-verified **6.6.144 + BakaSU `7b65bde0` + SuSFS `v2.3.0`**)
+- [`exp/6.6.162-susfs24`](https://github.com/server0608/Xiaomi_Rodin_Kernel_Enhance/tree/exp/6.6.162-susfs24) — experimental/quarantined branch preserving the `6.6.162/6.6.163 + SuSFS v2.4.0` work (known hard-lockup regression; **not for daily use**)
 
 ## Roadmap
 

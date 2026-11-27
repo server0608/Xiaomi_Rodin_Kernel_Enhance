@@ -326,3 +326,15 @@ definition {
 | `sched/fair: Add L2 cache awareness`（SIS_CACHE） | 十余个补丁的系列，改动面大、回归风险高。暂缓 |
 | `schedutil` 频率参考 25% margin | 我们的树已包含 `e37617c8e53a`，与主线一致，无需改动 |
 | EEVDF `PLACE_LAG` / `RUN_TO_PARITY` 改为 sysctl | 涉及 `sched_feat` 与用户可见接口，收益不确定。暂缓 |
+
+---
+
+## 暂缓 / 隔离的升级批次
+
+### 2026-11-27：`android15-6.6-lts` 6.6.162 + SuSFS v2.4.0 + BakaSU `57b2db60` 整机死机回归
+
+- **范围**：合并 AOSP `android15-6.6-lts`（`8e5968bb7aca`，Linux `6.6.162`，后夜间同步至 `6.6.163`）+ SuSFS v2.4.0（`f98f082`）+ BakaSU `57b2db60`/`cac1e793`。
+- **实机结果**：启动相机 20–40 秒稳定复现整机卡死（7 秒 swap +380 MB、95°C、`procs_blocked=0`），待机约 4 分钟偶发同样卡死，最终由 MTK AP watchdog 冷复位；`6.6.144`（`fc96916230e9`）实机对照稳定 36h+，刷回后恢复正常。
+- **处理**：完整提交链已保留在实验分支 `exp/6.6.162-susfs24`（`cfa5202c04bb`），主分支 `bsp-rodin-v-oss-bp` 回退至稳定 `6.6.144`（`7a6714fea2d9`），并暂停三个工作流的定时 `schedule`。
+- **结论**：暂缓升级。离线静态审计已排除 vendor `.ko` CRC/ABI 漂移与核心结构体尺寸漂移，并将根因范围收窄至两条独立线索（`6.6.162` 小米 per-VMA-lock 缺页重试钩子/MGLRU 改动 vs SuSFS v2.4.0 双 `path_put`、`statfs` 引用计数失衡、去门控热路径、`inotify_fdinfo` 持锁睡眠、`SUS_TYPE_HLIST` 缺键与 `selinux_hide` 缺陷），详见 [`PROJECT-STATE.md`](PROJECT-STATE.md) §9.7。
+

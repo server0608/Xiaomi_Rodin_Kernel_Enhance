@@ -8,8 +8,11 @@ name: sync-android15-6.6-lts
 # triggered via workflow_run, compiles the merged tree and publishes a Release.
 
 on:
-  schedule:
-    - cron: '37 18 * * *'   # daily 02:37 UTC+8 (off-peak minute; re-registered 2026-11-24)
+  # Paused 2026-11-27: 6.6.162+ hard-lockup regression under investigation in
+  # exp/6.6.162-susfs24 (see docs/PROJECT-STATE.md §9.7). Keep bsp-rodin-v-oss-bp
+  # pinned on verified stable 6.6.144; manual workflow_dispatch still works.
+  # schedule:
+  #   - cron: '37 18 * * *'   # daily 02:37 UTC+8
   workflow_dispatch:
 
 permissions:

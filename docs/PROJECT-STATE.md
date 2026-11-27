@@ -1,6 +1,6 @@
 # 项目状态台账
 
-> 最后更新：2026-11-08
+> 最后更新：2026-11-27
 > 本文件记录**客观事实**（版本、提交、配置），决策理由见
 > [`PATCH-AUDIT.md`](PATCH-AUDIT.md)，硬约束见 [`../AGENTS.md`](../AGENTS.md)。
 
@@ -9,16 +9,16 @@
 | 项 | 值 |
 |---|---|
 | 设备 | Redmi Turbo 4 / POCO X7 Pro，代号 `rodin` |
-| 系统 | HyperOS 3（**Android 16**） |
+| 系统 | HyperOS 3 / HyperOS 4（实测含 `OS4.0.0.15.XPTCNXM` / Android 17） |
 | GKI 世代 | `android15-6.6`（命名指内核分支，非设备 Android 版本） |
-| 内核版本 | **6.6.144** |
-| AOSP 基线 | `android15-6.6-lts`，**同为 6.6.144** |
-| 落后 AOSP | **0 个提交** |
-| kernel.org LTS 最新 | 6.6.162（领先 18 个版本，**不整体合并**） |
-| 当前 HEAD | `5b2a89a1fae0`（已推送 origin） |
+| 内核版本 | **6.6.144**（已实机验证稳定） |
+| AOSP 合并基线 | `android15-6.6-lts` @ `1c39bb5f635a`（本地合并提交 `76219f706bf4`） |
+| 上游状态 | AOSP `android15-6.6-lts` 已推进至 `6.6.162` / `6.6.163`，因整机死机回归暂隔离于实验分支 `exp/6.6.162-susfs24`（见 §9.7） |
+| 稳定回退基线 | `7a6714fea2d9`（内核源码等同已稳跑 36h+ 的 `fc96916230e9`） |
 
-AOSP 尚未推进到 6.6.145+，因此我们与官方基线严格同步。若需新修复，
-采用**精选 cherry-pick**，不整体合并。
+当前主分支 `bsp-rodin-v-oss-bp` 固定在已验证稳定的 **6.6.144 + BakaSU `7b65bde0` + SuSFS `v2.3.0`**，
+并将 `6.6.162/6.6.163 + SuSFS v2.4.0 + BakaSU 57b2db60/cac1e793` 完整保留在
+`exp/6.6.162-susfs24`（`cfa5202c04bb`）待后续隔离排查。
 
 ## 2. 调度 backport 清单
 
@@ -104,11 +104,11 @@ AOSP 尚未推进到 6.6.145+，因此我们与官方基线严格同步。若需
 
 | 项 | 值 |
 |---|---|
-| 内核模块 | BakaSU（ReSukiSU 分支），commit `516d3e87` |
-| 版本号 | **35257**，UAPI 6 |
+| 内核模块 | BakaSU（ReSukiSU 分支），commit `7b65bde0`（`KSU_LOCAL_VERSION = 4562`） |
+| 版本号 | **35262**，UAPI 6 |
 | SuSFS | 2.3.0 |
 | 关键编译开关 | `-DKSU_NO_PREINIT`（**不可移除**） |
-| 宏定义位置 | `tools/code_generation/code_generation.mk`、`tools/code_generation/preinit_runner/preinit_runner.mk`、`.github/workflows/sync-resukisu.yml` |
+| 宏定义位置 | `tools/code_generation/code_generation.mk`、`tools/code_generation/preinit_runner/preinit_runner.mk`、`fs/Makefile`、`.github/workflows/sync-resukisu.yml` |
 
 ### 已解决的三个问题
 
@@ -132,9 +132,11 @@ AOSP 尚未推进到 6.6.145+，因此我们与官方基线严格同步。若需
 
 | 工作流 | 触发 | 作用 |
 |---|---|---|
-| `sync-android15-6.6-lts.yml` | 每日 02:37 UTC+8 (`37 18 * * *`) | 合并 AOSP ACK 基线 |
-| `sync-resukisu.yml` | 每日 02:53 UTC+8 (`53 18 * * *`) | 同步 BakaSU 并保持兼容修复 |
-| `build-kernel.yml` | 每日 03:19 UTC+8 (`19 19 * * *`) + `workflow_run` + 手动 | 构建、打包、发 Release |
+| `sync-android15-6.6-lts.yml` | 仅手动 `workflow_dispatch`（定时 `37 18 * * *` 已暂停） | 合并 AOSP ACK 基线 |
+| `sync-resukisu.yml` | 仅手动 `workflow_dispatch`（定时 `53 18 * * *` 已暂停） | 同步 BakaSU 并保持兼容修复 |
+| `build-kernel.yml` | 手动 `workflow_dispatch` + `workflow_run`（定时 `19 19 * * *` 已暂停） | 构建、打包、发 Release |
+
+> **2026-11-27 定时调度暂停说明**：因 `6.6.162 + SuSFS v2.4.0 + BakaSU 57b2db60` 升级批次触发整机死机/看门狗复位（见 §9.7），已将实验历史另存到 `exp/6.6.162-susfs24` 并将主分支回退到稳定 `6.6.144`（`7a6714fea2d9`）。三个工作流的 `schedule` 均已暂停，防止夜间自动合并 `6.6.162+`、拉取不匹配 SuSFS v2.3.0 的新版 BakaSU 或自动发包；手动 `workflow_dispatch` 仍可用。
 
 > **2026-11-24 定时调度修复**：三个工作流自 2026-11-09 起 `schedule` 静默停摆（状态仍显示 `active`，手动 `workflow_dispatch` 正常），与 11-08 `sync-resukisu.yml` 解析失败及 11-09 18:07–19:20 UTC GitHub Actions 核心数据库迁移故障窗口完全重合。已将三个 `cron` 改为非整点奇数分钟并推送到默认分支，同时通过 GitHub API 执行 `disable` → `enable` 强制重新注册定时调度。
 
@@ -325,6 +327,46 @@ adb shell su -c 'dmesg | grep "keeping MGLRU"'
 小米原厂内核可能带有树内没有的私有特性，而 userspace 的 init.rc 会据此
 关闭标准机制。遇到异常行为时，应比对 init.rc 的写入与本内核实际提供的
 sysfs 节点。
+
+## 9.7 6.6.162 + SuSFS v2.4.0 / BakaSU 57b2db60 整机死机回归记录（2026-11-27）
+
+### 现象与基线对照
+
+- **故障版本**：`6.6.162`（合并 `aosp/android15-6.6-lts` @ `8e5968bb7aca`）+ SuSFS v2.4.0（`f98f082`）+ BakaSU `57b2db60`（`35285`），现已完整隔离至分支 `exp/6.6.162-susfs24`（含次日夜间自动同步的 `6.6.163` / `cac1e793` 提交 `cfa5202c04bb`）。
+- **实机症状**（`rodin` / `OS4.0.0.15.XPTCNXM` / Android 17）：
+  - 启动相机后 **20–40 秒**稳定复现整机卡死，待机约 4 分钟偶发同样卡死；
+  - 现场采样（`live2/heartbeat.log`）记录到启动相机后 7 秒内 swap 暴涨 **+380 MB**（880 MB → 1260 MB）、最高温飙至 **95°C**（`94999`）、`procs_blocked=0`，随后彻底断联并由 MTK AP watchdog 触发硬复位（`aee_aed.pureason=RebootException` / `aee_aed.poffreason=Cold_reset`）；
+  - `pstore` / `ramoops` 为空，无 kernel oops/panic。
+- **对照验证**：`6.6.144`（`fc96916230e9`）此前连续稳定运行 **36 小时以上**（正常关机 `[129642s]`）；2026-11-27 实机刷回 `6.6.144` 后已恢复稳定。
+
+### 现场日志盲区（后续排查须避坑）
+
+1. `cat /dev/kmsg` 会从开机历史最旧条目开始倒灌，断联时日志仅追到 `up=96s`，错过了死机前最后 114 秒（`up=210s`）；后续实机抓日志必须改用 `dmesg -w`（跳过历史）。
+2. `CONFIG_HARDLOCKUP_DETECTOR` 未启用；cmdline 含 `nosoftlockup` 导致运行时 `watchdog=0`；`hung_task`（60s）仅检测 `D` 态进程，对 `procs_blocked=0` 的可运行态死循环或关中断死锁完全失明。
+
+### 已排除方向（离线验证）
+
+- **厂商模块 ABI / CRC 漂移（排除）**：274 个 `/vendor/lib/modules/*.ko` 均基于 `6.6.77` 编译。对比 `6.6.144` 与 `6.6.162` 产出的 `vmlinux.symvers`，5 个核心厂商模块（`mali_kbase_mt6899_r49`、`scheduler`、`mtk_c2ps`、`task_turbo`、`fpsgo`）的 CRC 差异集合完全一致；16,727 个公共导出符号仅 55 个变动，零个涉及 sched/UFS/Mali/IOMMU/thermal/cpufreq/camera。
+- **核心结构体布局漂移（排除）**：`pahole --sizes` 确认 `task_struct`、`rq`（`CONFIG_SCHED_CORE` 未启用）、`cfs_rq`、`sched_entity`、`page`、`mm_struct` 尺寸与 `6.6.144` 一致。
+- **合并冲突与 `priority_uid_filter` RCU 怀疑（排除）**：复核 `bf641bbe26e9` 冲突文件（含 `ufs-mcq.c`、`mm/vmscan.c`、`fair.c`、`cpufreq_schedutil.c`）均正常；`susfs_is_priority_uid_filtered()` 全部 4 处调用均在 `rcu_read_lock()` 内。
+
+### 静态审计定位的两条独立嫌疑线
+
+- **嫌疑线 A（`6.6.144 → 6.6.162` LTS / 小米 GKI）**：
+  1. `arch/arm64/mm/fault.c` 新增导出到 `abi_gki_aarch64_xiaomi` 的 per-VMA-lock 缺页钩子（`3cf00dca4aad` / `8a74f0885234`），包含无上限的 `if (vma_retry) goto lock_vma;` 重试循环；需在设备连上 ADB 时扫描全部 274 个 `/vendor/lib/modules/*.ko` 确认是否有模块绑定。
+  2. `mm/vmscan.c` revert `4fbde4d4c15f` 并新增 5 个回收 vendor hooks；`CONFIG_ARM64_ERRATUM_3821522=y` 命中 Cortex-A725 并关闭 AMU 频率不变性；`kernel/futex/core.c` 修改 `handle_futex_death()`。
+- **嫌疑线 B（SuSFS v2.4.0 + BakaSU `57b2db60`，已实锤多项代码缺陷）**：
+  1. **CRITICAL**：`fs/susfs.c` 中 `watch_one_dir()` 出错路径 `path_put(&wd->kpath)` 后未清零，`susfs_sdcard_cleanup_fn()` 再次 `path_put()`（双重释放）。
+  2. **CRITICAL**：`fs/namespace.c` 中 `susfs_get_non_sus_vfsmnt_from_vfsmnt()` 异常分支未持引用返回 `vfsmnt`，而 `fs/statfs.c` 与 `fs/susfs.c` 调用方无条件 `dput()`/`mntput()`。
+  3. **HIGH**：`fs/susfs.c` 移除 `susfs_is_inode_sus_path()` 外层 `umounted` 门控并默认开启日志；`fs/statfs.c` 未对 `d_backing_inode()` 判空。
+  4. **HIGH**：`fs/notify/fdinfo.c` 在持有 `group->mark_mutex` 期间执行 `GFP_KERNEL`、`d_path()` 与 `kern_path()`（存在锁序反转风险）。
+  5. **HIGH**：`fs/susfs.c` 中 `SUS_TYPE_HLIST` 未存 `type_value` 导致哈希碰撞误隐藏正常 SELinux 类型；`selinux_hide` 持双互斥锁调用 `stop_machine()`、`fake_status` 页缺引用计数，且新增 `susfs_selinux_inode_setxattr()` 接管 `setxattr`。
+
+### 后续恢复排查入口（暂缓，按需重启）
+
+1. 先只读 ADB 扫描 274 个 `/vendor/lib/modules/*.ko` 是否引用上述 7 个新增 vendor hooks，确认嫌疑线 A1。
+2. 刷入已离线编译的纯合并二分包（`04feff837145`：`6.6.162` + 旧稳定 SuSFS v2.3.0 / BakaSU `7b65bde0`，免换管理器）测相机 1 分钟，一步分清锅在 A 还是 B。
+3. 无论二分结果如何，合入 SuSFS v2.4.0 前必须先修复嫌疑线 B 已实锤缺陷；若需在内核抓栈，临时调试包开启 `CONFIG_PROVE_LOCKING=y`、`CONFIG_DEBUG_ATOMIC_SLEEP=y`、`CONFIG_HARDLOCKUP_DETECTOR=y` 并改用 `dmesg -w`。
 
 ## 10. 每次刷机前的强制检查
 

@@ -9,8 +9,11 @@ name: sync-resukisu
 # workflow (chained via workflow_run) does the real compile.
 
 on:
-  schedule:
-    - cron: '53 18 * * *'   # daily 02:53 UTC+8, after sync-android15-6.6-lts (off-peak minute; re-registered 2026-11-24)
+  # Paused 2026-11-27: bsp-rodin-v-oss-bp is pinned on stable 6.6.144 + SUSFS v2.3.0
+  # + BakaSU 7b65bde0 while the 6.6.162 / SUSFS v2.4.0 hard-lockup regression is
+  # quarantined in exp/6.6.162-susfs24 (see docs/PROJECT-STATE.md §9.7).
+  # schedule:
+  #   - cron: '53 18 * * *'   # daily 02:53 UTC+8, after sync-android15-6.6-lts
   workflow_dispatch:
 
 permissions:
