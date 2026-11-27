@@ -1257,7 +1257,6 @@
   krealloc
   kset_register
   kset_unregister
-  kstrdup
   kstrdup_const
   kstrndup
   kstrtobool

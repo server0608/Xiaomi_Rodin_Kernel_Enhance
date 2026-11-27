@@ -1488,7 +1488,6 @@
   ksoftirqd
   kstat
   kstat_irqs_usr
-  kstrdup
   kstrndup
   kstrtobool
   kstrtobool_from_user

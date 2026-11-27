@@ -839,7 +839,6 @@
   kobject_uevent
   kobject_uevent_env
   krealloc
-  kstrdup
   kstrdup_quotable_cmdline
   kstrtobool
   kstrtobool_from_user

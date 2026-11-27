@@ -1056,6 +1056,9 @@ int mlx5_ib_destroy_cq(struct ib_cq *cq, struct ib_udata *udata)
 	struct mlx5_ib_cq *mcq = to_mcq(cq);
 	int ret;
 
+	if (!cq->uobject)
+		cancel_work_sync(&mcq->notify_work);
+
 	ret = mlx5_core_destroy_cq(dev->mdev, &mcq->mcq);
 	if (ret)
 		return ret;
@@ -1239,7 +1242,7 @@ static int copy_resize_cqes(struct mlx5_ib_cq *cq)
 
 	while (get_cqe_opcode(scqe64) != MLX5_CQE_RESIZE_CQ) {
 		dcqe = mlx5_frag_buf_get_wqe(&cq->resize_buf->fbc,
-					     (i + 1) & cq->resize_buf->nent);
+					     (i + 1) & (cq->resize_buf->nent - 1));
 		dcqe64 = dsize == 64 ? dcqe : dcqe + 64;
 		sw_own = sw_ownership_bit(i + 1, cq->resize_buf->nent);
 		memcpy(dcqe, scqe, dsize);

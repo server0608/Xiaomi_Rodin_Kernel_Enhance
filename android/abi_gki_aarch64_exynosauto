@@ -273,7 +273,6 @@
   kobject_init_and_add
   kobject_put
   krealloc
-  kstrdup
   kstrndup
   kstrtoint
   kstrtoll

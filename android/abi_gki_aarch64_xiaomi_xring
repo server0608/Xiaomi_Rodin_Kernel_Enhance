@@ -1192,7 +1192,6 @@
   kset_create_and_add
   kset_unregister
   ksoftirqd
-  kstrdup
   kstrdup_const
   kstrndup
   kstrtobool

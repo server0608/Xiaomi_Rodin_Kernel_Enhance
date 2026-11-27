@@ -1497,7 +1497,6 @@
   kobject_uevent
   kobject_uevent_env
   krealloc
-  kstrdup
   kstrdup_const
   kstrdup_quotable_cmdline
   kstrndup
